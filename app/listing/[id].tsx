@@ -201,15 +201,16 @@ export default function ListingDetailScreen() {
             )
           ) : null}
         </View>
+      </ScrollView>
 
-        <ReviewModal
-          visible={showModal}
-          onClose={() => setShowModal(false)}
-          onSubmit={handleSubmitReview}
-          conversationId={hasConversation || ''}
-        />
+      <ReviewModal
+        visible={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={handleSubmitReview}
+        conversationId={hasConversation || ''}
+      />
 
-        <View style={styles.bottomBar}>
+      <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.contactBtn} onPress={handleContact}>
           <MessageCircle size={20} color={Colors.white} />
           <Text style={styles.contactBtnText}>Contactar</Text>

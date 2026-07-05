@@ -49,10 +49,13 @@ BEGIN
     )
   WHERE id = v_listing_id;
 
-  -- Update the seller's overall profile rating
+  -- Update the seller's overall profile rating (average of ALL individual review ratings)
   UPDATE profiles
   SET rating = COALESCE(
-    (SELECT ROUND(AVG(rating), 1) FROM listings WHERE user_id = v_seller_id),
+    (SELECT ROUND(AVG(r.rating), 1) FROM reviews r
+     JOIN conversations c ON c.id = r.conversation_id
+     JOIN listings l ON l.id = c.listing_id
+     WHERE l.user_id = v_seller_id),
     5.0
   )
   WHERE id = v_seller_id;
