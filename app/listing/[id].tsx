@@ -5,15 +5,19 @@ import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, Tag } from 'lucide-re
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Listing } from '@/types';
-import { mockListings } from '@/constants/mockData';
+import { Listing, Profile } from '@/types';
+import ReviewModal from '@/components/ReviewModal';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
+  const [seller, setSeller] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasConversation, setHasConversation] = useState<string | null>(null);
+  const [hasReviewed, setHasReviewed] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     fetchListing();
@@ -23,16 +27,63 @@ export default function ListingDetailScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('listings')
-      .select('*, category:category_id(*), user:user_id(*)')
+      .select('*, category:category_id(*)')
       .eq('id', id as string)
       .maybeSingle();
     if (data) {
       setListing(data as Listing);
-    } else {
-      const mock = mockListings.find(l => l.id === id);
-      if (mock) setListing(mock);
+      // Fetch seller profile separately (listings.user_id references auth.users, not profiles)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user_id)
+        .maybeSingle();
+      if (profile) setSeller(profile as Profile);
     }
     setLoading(false);
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      setHasConversation(null);
+      setHasReviewed(false);
+      if (!listing || !user) return;
+      if (listing.user_id === user.id) return;
+
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('listing_id', listing.id)
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .maybeSingle();
+      if (!conv) return;
+      setHasConversation(conv.id);
+
+      const { data: review } = await supabase
+        .from('reviews')
+        .select('id')
+        .eq('conversation_id', conv.id)
+        .eq('reviewer_id', user.id)
+        .maybeSingle();
+      if (review) setHasReviewed(true);
+    };
+    run();
+  }, [listing?.id, user?.id]);
+
+  const handleSubmitReview = async (rating: number, comment: string) => {
+    if (!user || !hasConversation) return;
+    const { error } = await supabase.from('reviews').insert({
+      conversation_id: hasConversation,
+      reviewer_id: user.id,
+      rating,
+      comment: comment || null,
+    });
+    if (error) {
+      if (error.code === '23505') {
+        throw new Error('Ya calificaste a este vendedor.');
+      }
+      throw new Error('Error al enviar la calificación. Intentalo de nuevo.');
+    }
   };
 
   const handleContact = async () => {
@@ -126,22 +177,39 @@ export default function ListingDetailScreen() {
             <Text style={styles.sectionTitle}>Vendedor</Text>
             <View style={styles.sellerRow}>
               <View style={styles.sellerAvatar}>
-                <Text style={styles.sellerAvatarText}>{(listing.user?.full_name || 'U')[0]}</Text>
+                <Text style={styles.sellerAvatarText}>{(seller?.full_name || 'U')[0]}</Text>
               </View>
               <View style={styles.sellerInfo}>
-                <Text style={styles.sellerName}>{listing.user?.full_name || 'Usuario'}</Text>
+                <Text style={styles.sellerName}>{seller?.full_name || 'Usuario'}</Text>
                 <View style={styles.sellerMeta}>
                   <Star size={12} color={Colors.star} fill={Colors.star} />
-                  <Text style={styles.sellerMetaText}>{listing.user?.rating?.toFixed(1) || '5.0'}</Text>
-                  <Text style={styles.sellerMetaText}>· {listing.user?.total_sales || 0} ventas</Text>
+                  <Text style={styles.sellerMetaText}>{seller?.rating?.toFixed(1) || '5.0'}</Text>
+                  <Text style={styles.sellerMetaText}>· {seller?.total_sales || 0} ventas</Text>
                 </View>
               </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
 
-      <View style={styles.bottomBar}>
+          {user && listing.user_id !== user.id && hasConversation ? (
+            hasReviewed ? (
+              <Text style={styles.reviewedText}>Ya calificaste este aviso</Text>
+            ) : (
+              <TouchableOpacity style={styles.reviewBtn} onPress={() => setShowModal(true)}>
+                <Star size={16} color={Colors.white} fill={Colors.white} />
+                <Text style={styles.reviewBtnText}>Calificar vendedor</Text>
+              </TouchableOpacity>
+            )
+          ) : null}
+        </View>
+
+        <ReviewModal
+          visible={showModal}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleSubmitReview}
+          conversationId={hasConversation || ''}
+        />
+
+        <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.contactBtn} onPress={handleContact}>
           <MessageCircle size={20} color={Colors.white} />
           <Text style={styles.contactBtnText}>Contactar</Text>
@@ -176,6 +244,9 @@ const styles = StyleSheet.create({
   sellerName: { fontSize: 15, fontWeight: '700', color: Colors.text },
   sellerMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   sellerMetaText: { fontSize: 12, color: Colors.textMuted },
+  reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.secondary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, marginTop: 12 },
+  reviewBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
+  reviewedText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', marginTop: 12, textAlign: 'center' },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.surface, padding: 16, borderTopWidth: 1, borderTopColor: Colors.border },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, padding: 16, borderRadius: 14 },
   contactBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
