@@ -24,8 +24,18 @@ export interface Listing {
   listing_priority: number;
   status: string;
   rating: number;
+  reviews_count: number;
   created_at: string;
   user?: Profile;
+}
+
+export interface Review {
+  id: string;
+  conversation_id: string;
+  reviewer_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
 }
 
 export interface Profile {
