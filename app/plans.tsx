@@ -5,11 +5,8 @@ import { ArrowLeft, Star, Check, Crown, Zap } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan } from '@/types';
-import { useAuth } from '@/contexts/AuthContext';
-
 export default function PlansScreen() {
   const router = useRouter();
-  const { user } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
 
   useEffect(() => {

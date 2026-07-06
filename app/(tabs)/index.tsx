@@ -11,29 +11,25 @@ import {
 import { useRouter } from 'expo-router';
 import {
   Search,
-  MapPin,
   Star,
   TrendingUp,
   Clock,
   ChevronRight,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/AuthContext';
 import { useListings } from '@/hooks/useListings';
 import { useCategories } from '@/hooks/useCategories';
-import { CategoryIcon } from '@/components/CategoryIcon';
 import { ListingCard } from '@/components/ListingCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { SkeletonCard } from '@/components/SkeletonCard';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { data: listings = [], isLoading: loadingListings } = useListings();
-  const { data: categories = [], isLoading: loadingCategories } = useCategories();
+  const { data: categories = [] } = useCategories();
 
   const featured = useMemo(
     () =>

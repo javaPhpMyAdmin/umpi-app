@@ -1,6 +1,6 @@
 import { StyleSheet, TouchableOpacity, View, Text, Image, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, Star, MessageCircle, MoreHorizontal } from 'lucide-react-native';
+import { MapPin, Star, MoreHorizontal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Listing } from '@/types';
 

@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { uploadImage } from '@/lib/upload';
 import { Category } from '@/types';
+import { CategoryBadge } from '@/components/CategoryBadge';
 import { showError, showSuccess } from '@/lib/toast';
 import { useListing } from '@/hooks/useListing';
 import { useEditListing } from '@/hooks/useListings';
@@ -26,6 +27,7 @@ export default function PublishScreen() {
     supabase.from('categories')
       .select('*')
       .eq('is_active', true)
+      .neq('slug', 'todos')
       .order('name')
       .then(({ data }) => {
         if (data && data.length > 0) {
@@ -240,12 +242,12 @@ export default function PublishScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.categoryRow}>
               {categories.map(cat => (
-                <TouchableOpacity
+                <CategoryBadge
                   key={cat.id}
-                  style={[styles.categoryChip, selectedCategory === cat.id && { backgroundColor: Colors.primary }]}
-                  onPress={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}>
-                  <Text style={[styles.categoryChipText, selectedCategory === cat.id && { color: Colors.white }]}>{cat.name}</Text>
-                </TouchableOpacity>
+                  category={cat}
+                  isActive={selectedCategory === cat.id}
+                  onPress={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                />
               ))}
             </View>
           </ScrollView>
@@ -340,8 +342,6 @@ const styles = StyleSheet.create({
   section: { gap: 8 },
   sectionLabel: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
   categoryRow: { flexDirection: 'row', gap: 8 },
-  categoryChip: { backgroundColor: Colors.borderLight, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  categoryChipText: { fontSize: 13, fontWeight: '600', color: Colors.text },
   inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, gap: 8 },
   input: { flex: 1, fontSize: 14, color: Colors.text },
   textArea: { height: 80, textAlignVertical: 'top' },

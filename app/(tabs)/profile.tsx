@@ -1,6 +1,6 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Star, Package, TrendingUp, Settings, Crown, LogOut, User, Plus, ChevronRight, Edit3, Trash2 } from 'lucide-react-native';
+import { Star, Settings, Crown, LogOut, User, Plus, ChevronRight, Edit3, Trash2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyListings, useDeleteListing } from '@/hooks/useListings';

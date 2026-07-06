@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, Tag, LogIn, Edit3, Trash2, MoreHorizontal } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +17,7 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 const SIMULATED_DELAY_MS = 0;
 
 export default function ListingDetailScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
@@ -29,6 +30,7 @@ export default function ListingDetailScreen() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentImage, setCurrentImage] = useState(0);
 
   const isOwner = !!user && !!listing && listing.user_id === user.id;
   const deleteMutation = useDeleteListing();
@@ -168,16 +170,36 @@ export default function ListingDetailScreen() {
     );
   }
 
-  const image = listing.images?.[0] || listing.category?.image_url || '';
+  const allImages = (listing.images?.length ? listing.images : [listing.category?.image_url || '']).filter(Boolean);
 
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.imageWrap}>
-          <Image source={{ uri: image }} style={styles.image} />
+        <View style={[styles.imageWrap, { width: screenWidth }]}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={e => {
+              const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+              setCurrentImage(page);
+            }}
+            scrollEventThrottle={16}
+          >
+            {allImages.map((uri, i) => (
+              <Image key={`${uri}-${i}`} source={{ uri }} style={[styles.image, { width: screenWidth }]} resizeMode="cover" />
+            ))}
+          </ScrollView>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <ArrowLeft size={22} color={Colors.white} />
           </TouchableOpacity>
+          {allImages.length > 1 && (
+            <View style={styles.dots}>
+              {allImages.map((_, i) => (
+                <View key={i} style={[styles.dot, i === currentImage && styles.dotActive]} />
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.content}>
@@ -311,6 +333,9 @@ const styles = StyleSheet.create({
   imageWrap: { position: 'relative', height: 280 },
   image: { width: '100%', height: '100%' },
   backBtn: { position: 'absolute', top: 48, left: 16, backgroundColor: 'rgba(0,0,0,0.4)', padding: 10, borderRadius: 12 },
+  dots: { position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
+  dotActive: { width: 22, backgroundColor: Colors.white },
   content: { padding: 20, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
   title: { flex: 1, fontSize: 22, fontWeight: '800', color: Colors.text, lineHeight: 28 },
