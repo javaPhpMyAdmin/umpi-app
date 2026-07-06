@@ -5,6 +5,7 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyListings, useDeleteListing } from '@/hooks/useListings';
 import { ListingCard } from '@/components/ListingCard';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import ActionSheet from '@/components/ActionSheet';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import { showError, showSuccess } from '@/lib/toast';
@@ -155,7 +156,11 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
           </View>
-          {myListings.length === 0 ? (
+          {isLoading ? (
+            <View style={styles.listingsGrid}>
+              {[1, 2, 3, 4].map(i => <SkeletonCard key={i} variant="compact" />)}
+            </View>
+          ) : myListings.length === 0 ? (
             <View style={styles.emptyListings}>
               <Text style={styles.emptyListingsText}>No tenes publicaciones activas</Text>
             </View>

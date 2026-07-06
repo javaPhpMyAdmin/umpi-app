@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -25,6 +24,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ListingCard } from '@/components/ListingCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
+import { SkeletonCard } from '@/components/SkeletonCard';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -93,10 +93,43 @@ export default function HomeScreen() {
       </View>
 
       {loadingListings && listings.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Cargando...</Text>
-        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.searchContainer}>
+            <SkeletonCard variant="compact" style={{ width: '100%', height: 44, borderRadius: 14, marginTop: -18 }} />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoriesScroll}
+          >
+            <View style={styles.categoriesRow}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <View key={i} style={{ width: 80, height: 32, backgroundColor: Colors.border, borderRadius: 16 }} />
+              ))}
+            </View>
+          </ScrollView>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={{ width: 140, height: 18, backgroundColor: Colors.border, borderRadius: 4 }} />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.featuredScroll}>
+              <View style={styles.featuredRow}>
+                {[1, 2, 3].map(i => <SkeletonCard key={i} variant="featured" />)}
+              </View>
+            </ScrollView>
+          </View>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={{ width: 160, height: 18, backgroundColor: Colors.border, borderRadius: 4 }} />
+            </View>
+            <View style={styles.recentGrid}>
+              {[1, 2, 3, 4].map(i => <SkeletonCard key={i} variant="compact" />)}
+            </View>
+          </View>
+        </ScrollView>
       ) : (
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -371,15 +404,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.primary,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: Colors.textMuted,
-  },
+
 });

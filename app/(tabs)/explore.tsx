@@ -6,6 +6,7 @@ import { Colors } from '@/constants/colors';
 import { Category, Listing } from '@/types';
 import { ListingCard } from '@/components/ListingCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { supabase } from '@/lib/supabase';
 
 export default function ExploreScreen() {
@@ -124,15 +125,23 @@ export default function ExploreScreen() {
         </View>
 
         <View style={styles.grid}>
-          <View style={styles.listGrid}>
-            {sorted.map(item => (
-              <ListingCard key={item.id} listing={item} variant="compact" />
-            ))}
-          </View>
-          {sorted.length === 0 && (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>No se encontraron avisos</Text>
+          {loading ? (
+            <View style={styles.listGrid}>
+              {[1, 2, 3, 4].map(i => <SkeletonCard key={i} variant="compact" />)}
             </View>
+          ) : (
+            <>
+              <View style={styles.listGrid}>
+                {sorted.map(item => (
+                  <ListingCard key={item.id} listing={item} variant="compact" />
+                ))}
+              </View>
+              {sorted.length === 0 && (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyText}>No se encontraron avisos</Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       </ScrollView>

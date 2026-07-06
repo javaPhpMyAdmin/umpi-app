@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -47,6 +47,25 @@ export default function PublishScreen() {
   const [prefilled, setPrefilled] = useState(false);
 
   const editMutation = useEditListing();
+
+  const resetForm = useCallback(() => {
+    setTitle('');
+    setDescription('');
+    setPrice('');
+    setLocation('');
+    setSelectedCategory(null);
+    setPriceType('fixed');
+    setImages([]);
+    setInitialImages([]);
+    setPrefilled(false);
+  }, []);
+
+  // Detect edit param disappearing — reset form to clean state
+  useEffect(() => {
+    if (!edit) {
+      resetForm();
+    }
+  }, [edit, resetForm]);
 
   // Prefill form when edit listing data arrives
   useEffect(() => {
@@ -202,7 +221,14 @@ export default function PublishScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => { editMode ? (router.setParams({}), router.back()) : router.back(); }}>
+        <TouchableOpacity onPress={() => {
+          if (editMode) {
+            resetForm();
+            router.replace('/publish');
+          } else {
+            router.back();
+          }
+        }}>
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{editMode ? 'Editar aviso' : 'Nueva publicacion'}</Text>

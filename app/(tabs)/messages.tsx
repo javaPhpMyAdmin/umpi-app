@@ -6,17 +6,20 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Conversation } from '@/types';
+import { SkeletonCard } from '@/components/SkeletonCard';
 
 export default function MessagesScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) fetchConversations();
   }, [user]);
 
   const fetchConversations = async () => {
+    setLoading(true);
     const { data } = await supabase
       .from('conversations')
       .select('*, listing:listing_id(*), user1:user1_id(*), user2:user2_id(*)')
@@ -29,6 +32,7 @@ export default function MessagesScreen() {
       });
       setConversations(convs);
     }
+    setLoading(false);
   };
 
   if (!user) {
@@ -54,12 +58,14 @@ export default function MessagesScreen() {
         <Text style={styles.headerTitle}>Mensajes</Text>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {conversations.length === 0 && (
+        {loading ? (
+          [1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} variant="conversation" />)
+        ) : conversations.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No tenes conversaciones aun</Text>
             <Text style={styles.emptySubtext}>Contacta a un vendedor desde cualquier aviso</Text>
           </View>
-        )}
+        ) : null}
         {conversations.map(conv => (
           <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}`)} activeOpacity={0.7}>
             <View style={styles.avatar}>

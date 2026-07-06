@@ -11,6 +11,10 @@ import { showError, showSuccess } from '@/lib/toast';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import ActionSheet from '@/components/ActionSheet';
 import { useDeleteListing } from '@/hooks/useListings';
+import { SkeletonCard } from '@/components/SkeletonCard';
+
+// ⚠️ Set to 0 in production — this is only for visual QA of the skeleton
+const SIMULATED_DELAY_MS = 0;
 
 export default function ListingDetailScreen() {
   const router = useRouter();
@@ -35,6 +39,12 @@ export default function ListingDetailScreen() {
 
   const fetchListing = async () => {
     setLoading(true);
+
+    // Artificial delay for skeleton visual QA
+    if (SIMULATED_DELAY_MS > 0) {
+      await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY_MS));
+    }
+
     const { data } = await supabase
       .from('listings')
       .select('*, category:category_id(*)')
@@ -153,7 +163,7 @@ export default function ListingDetailScreen() {
   if (loading || !listing) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loading}>Cargando...</Text>
+        <SkeletonCard variant="detail" />
       </View>
     );
   }
@@ -298,7 +308,6 @@ export default function ListingDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  loading: { textAlign: 'center', marginTop: 100, fontSize: 16, color: Colors.textMuted },
   imageWrap: { position: 'relative', height: 280 },
   image: { width: '100%', height: '100%' },
   backBtn: { position: 'absolute', top: 48, left: 16, backgroundColor: 'rgba(0,0,0,0.4)', padding: 10, borderRadius: 12 },
