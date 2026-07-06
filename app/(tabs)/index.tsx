@@ -1,56 +1,71 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, TextInput, Image } from 'react-native';
+import { useState, useMemo } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, MapPin, Star, TrendingUp, Clock, ChevronRight } from 'lucide-react-native';
+import {
+  Search,
+  MapPin,
+  Star,
+  TrendingUp,
+  Clock,
+  ChevronRight,
+} from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { Category, Listing } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { useListings } from '@/hooks/useListings';
+import { useCategories } from '@/hooks/useCategories';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { ListingCard } from '@/components/ListingCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
-import { mockListings } from '@/constants/mockData';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [featured, setFeatured] = useState<Listing[]>([]);
-  const [recent, setRecent] = useState<Listing[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchCategories();
-    fetchListings();
-  }, []);
+  const { data: listings = [], isLoading: loadingListings } = useListings();
+  const { data: categories = [], isLoading: loadingCategories } = useCategories();
 
-  const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*').eq('is_active', true).order('name');
-    if (data) setCategories(data as Category[]);
-  };
+  const featured = useMemo(
+    () =>
+      [...listings]
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 6),
+    [listings]
+  );
+  const recent = useMemo(() => listings.slice(0, 8), [listings]);
 
-  const fetchListings = async () => {
-    const { data } = await supabase
-      .from('listings')
-      .select('*, category:category_id(*), user:user_id(*)')
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
+  const filteredFeatured = useMemo(() => {
+    if (!selectedCategory || selectedCategory === 'todos') return featured;
+    return [...listings]
+      .filter(
+        (l) =>
+          l.category?.slug === selectedCategory ||
+          l.category?.name === selectedCategory
+      )
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+      .slice(0, 6);
+  }, [listings, selectedCategory, featured]);
 
-    const all = (data as Listing[]) || [];
-    const combined = all.length > 0 ? all : mockListings;
-    setListings(combined);
-    setFeatured(combined.filter(l => l.is_featured || l.listing_priority > 0).slice(0, 6));
-    setRecent(combined.slice(0, 8));
-  };
-
-  const filteredListings = selectedCategory && selectedCategory !== 'todos'
-    ? listings.filter(l => l.category?.slug === selectedCategory || l.category?.name === selectedCategory)
-    : listings;
-
-  const filteredFeatured = filteredListings.filter(l => l.is_featured || l.listing_priority > 0).slice(0, 6);
-  const filteredRecent = filteredListings.slice(0, 8);
+  const filteredRecent = useMemo(() => {
+    if (!selectedCategory || selectedCategory === 'todos') return recent;
+    return listings
+      .filter(
+        (l) =>
+          l.category?.slug === selectedCategory ||
+          l.category?.name === selectedCategory
+      )
+      .slice(0, 8);
+  }, [listings, selectedCategory, recent]);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -62,7 +77,6 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.logo}>Umpi</Text>
-        <Text style={styles.tagline}>Avisos clasificados</Text>
       </View>
 
       <View style={styles.searchContainer}>
@@ -78,15 +92,32 @@ export default function HomeScreen() {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
+      {loadingListings && listings.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Cargando...</Text>
+        </View>
+      ) : (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesScroll}
+        >
           <View style={styles.categoriesRow}>
-            {categories.map(cat => (
+            {categories.map((cat) => (
               <CategoryBadge
                 key={cat.id}
                 category={cat}
                 isActive={selectedCategory === cat.slug}
-                onPress={() => setSelectedCategory(selectedCategory === cat.slug ? null : cat.slug)}
+                onPress={() =>
+                  setSelectedCategory(
+                    selectedCategory === cat.slug ? null : cat.slug
+                  )
+                }
               />
             ))}
           </View>
@@ -94,7 +125,10 @@ export default function HomeScreen() {
 
         {selectedCategory && (
           <View style={styles.filterInfo}>
-            <Text style={styles.filterText}>Filtrando por: {categories.find(c => c.slug === selectedCategory)?.name}</Text>
+            <Text style={styles.filterText}>
+              Filtrando por:{' '}
+              {categories.find((c) => c.slug === selectedCategory)?.name}
+            </Text>
             <TouchableOpacity onPress={() => setSelectedCategory(null)}>
               <Text style={styles.filterClear}>Limpiar</Text>
             </TouchableOpacity>
@@ -107,13 +141,24 @@ export default function HomeScreen() {
               <TrendingUp size={20} color={Colors.primary} />
               <Text style={styles.sectionTitle}>Mas populares</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/explore', params: { featured: 'true' } })}>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: '/explore',
+                  params: { featured: 'true' },
+                })
+              }
+            >
               <Text style={styles.sectionLink}>Ver todos</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.featuredScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.featuredScroll}
+          >
             <View style={styles.featuredRow}>
-              {filteredFeatured.map(item => (
+              {filteredFeatured.map((item) => (
                 <ListingCard key={item.id} listing={item} variant="featured" />
               ))}
             </View>
@@ -128,7 +173,7 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.recentGrid}>
-            {filteredRecent.map(item => (
+            {filteredRecent.map((item) => (
               <ListingCard key={item.id} listing={item} variant="compact" />
             ))}
           </View>
@@ -141,14 +186,21 @@ export default function HomeScreen() {
               <Text style={styles.sectionTitle}>Suscripciones destacadas</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.planBanner} onPress={() => router.push('/plans')}>
+          <TouchableOpacity
+            style={styles.planBanner}
+            onPress={() => router.push('/plans')}
+          >
             <Image
-              source={{ uri: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg' }}
+              source={{
+                uri: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg',
+              }}
               style={styles.planBannerImage}
             />
             <View style={styles.planBannerOverlay}>
               <Text style={styles.planBannerTitle}>Llega a mas personas</Text>
-              <Text style={styles.planBannerSubtitle}>Planes desde $7.000 ARS/mes</Text>
+              <Text style={styles.planBannerSubtitle}>
+                Planes desde $7.000 ARS/mes
+              </Text>
               <View style={styles.planBannerButton}>
                 <Text style={styles.planBannerButtonText}>Ver planes</Text>
                 <ChevronRight size={16} color={Colors.primary} />
@@ -157,6 +209,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -214,6 +267,7 @@ const styles = StyleSheet.create({
   categoriesRow: {
     flexDirection: 'row',
     gap: 10,
+    paddingRight: 16,
   },
   filterInfo: {
     flexDirection: 'row',
@@ -316,5 +370,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: Colors.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 80,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textMuted,
   },
 });

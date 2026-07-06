@@ -1,6 +1,6 @@
 import { StyleSheet, TouchableOpacity, View, Text, Image, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MapPin, Star, MessageCircle } from 'lucide-react-native';
+import { MapPin, Star, MessageCircle, MoreHorizontal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Listing } from '@/types';
 
@@ -8,12 +8,15 @@ interface ListingCardProps {
   listing: Listing;
   variant?: 'featured' | 'compact';
   style?: ViewStyle;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function ListingCard({ listing, variant = 'featured', style }: ListingCardProps) {
+export function ListingCard({ listing, variant = 'featured', style, onEdit, onDelete }: ListingCardProps) {
   const router = useRouter();
   const isCompact = variant === 'compact';
   const image = listing.images?.[0] || listing.category?.image_url || '';
+  const hasActions = !!onEdit || !!onDelete;
 
   const formatPrice = (price: number | null) => {
     if (!price) return 'Consultar';
@@ -25,7 +28,14 @@ export function ListingCard({ listing, variant = 'featured', style }: ListingCar
       style={[isCompact ? styles.compact : styles.featured, style]}
       onPress={() => router.push(`/listing/${listing.id}`)}
       activeOpacity={0.8}>
-      <Image source={{ uri: image }} style={isCompact ? styles.compactImage : styles.featuredImage} />
+      <View>
+        <Image source={{ uri: image }} style={isCompact ? styles.compactImage : styles.featuredImage} />
+        {hasActions && (
+          <TouchableOpacity style={styles.actionBtn} onPress={onEdit || onDelete}>
+            <MoreHorizontal size={18} color={Colors.white} />
+          </TouchableOpacity>
+        )}
+      </View>
       {listing.is_featured && (
         <View style={styles.featuredBadge}>
           <Star size={12} color={Colors.gold} fill={Colors.gold} />
@@ -158,5 +168,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.white,
     fontWeight: '600',
+  },
+  actionBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 14,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

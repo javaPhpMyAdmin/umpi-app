@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Save, Shield } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { showError, showSuccess } from '@/lib/toast';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -22,10 +23,10 @@ export default function SettingsScreen() {
       .update({ full_name: fullName, phone, location })
       .eq('id', user.id);
     setSaving(false);
-    if (error) Alert.alert('Error', error.message);
+    if (error) showError('Error', error.message);
     else {
       await refreshProfile();
-      Alert.alert('Exito', 'Perfil actualizado');
+      showSuccess('Exito', 'Perfil actualizado');
     }
   };
 

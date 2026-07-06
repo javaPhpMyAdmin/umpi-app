@@ -1,29 +1,40 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Upload, Camera, MapPin, DollarSign, Tag, FileText } from 'lucide-react-native';
+import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, X, MapPin, DollarSign, Tag, FileText, Plus } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Category, Listing } from '@/types';
-import { mockCategories } from '@/constants/mockData';
+import { uploadImage } from '@/lib/upload';
+import { Category } from '@/types';
+import { showError, showSuccess } from '@/lib/toast';
+import { useListing } from '@/hooks/useListing';
+import { useEditListing } from '@/hooks/useListings';
 
 export default function PublishScreen() {
   const router = useRouter();
-  const { user, session, isLoading, signIn, signInWithGoogle, refreshSession, getAuthDebug } = useAuth();
-  const [debugInfo, setDebugInfo] = useState('');
-  const [showDebug, setShowDebug] = useState(false);
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const editMode = !!edit;
+  const { data: editListing, isLoading: editLoading } = useListing(edit || null);
 
+  // Fetch categorías reales desde Supabase
   useEffect(() => {
-    if (user) {
-      setShowLogin(false);
-    } else {
-      refreshSession().then(recovered => {
-        if (recovered) setShowLogin(false);
+    supabase.from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setCategories(data as Category[]);
+        }
       });
-    }
-  }, [user]);
-  const [categories, setCategories] = useState<Category[]>(mockCategories.filter(c => c.slug !== 'todos' && c.slug !== 'destacados'));
+  }, []);
+
+  const [categories, setCategories] = useState<Category[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -31,74 +42,142 @@ export default function PublishScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [priceType, setPriceType] = useState<'fixed' | 'contact'>('fixed');
   const [images, setImages] = useState<string[]>([]);
+  const [initialImages, setInitialImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [showLogin, setShowLogin] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
 
-  const handleLogin = async () => {
-    const { error } = await signIn(loginEmail, loginPassword);
-    if (error) Alert.alert('Error', error.message);
-  };
-  const handleGoogleLogin = async () => {
-    addDebug('▶ Iniciando login con Google...');
-    const { error } = await signInWithGoogle();
-    if (error) {
-      addDebug('✗ Error: ' + error.message);
-      Alert.alert('Error', error.message);
-    } else {
-      addDebug('✓ signInWithGoogle completado');
-      // Verificar sesión inmediatamente
-      const { data: { session: s } } = await supabase.auth.getSession();
-      addDebug('  getSession post-login: ' + (s ? 'HAY SESIÓN (' + s.user.email + ')' : 'null'));
-      // Reintentar refreshSession
-      const recovered = await refreshSession();
-      addDebug('  refreshSession: ' + (recovered ? 'recuperada' : 'no recuperada'));
+  const editMutation = useEditListing();
+
+  // Prefill form when edit listing data arrives
+  useEffect(() => {
+    if (editMode && editListing && !prefilled) {
+      // Validate ownership
+      if (editListing.user_id !== user?.id) {
+        showError('No tienes permiso', 'No tienes permiso para editar este aviso');
+        return;
+      }
+
+      setTitle(editListing.title);
+      setDescription(editListing.description || '');
+      setPrice(editListing.price ? editListing.price.toString() : '');
+      setLocation(editListing.location || '');
+      setSelectedCategory(editListing.category_id);
+      setPriceType((editListing.price_type as 'fixed' | 'contact') || 'fixed');
+      const imgs = editListing.images || [];
+      setImages(imgs);
+      setInitialImages([...imgs]);
+      setPrefilled(true);
+    }
+  }, [editMode, editListing, user?.id, prefilled]);
+
+  // Fallback: if listing not found or wrong owner, clear edit mode
+  useEffect(() => {
+    if (editMode && !editLoading && editListing === null && !prefilled) {
+      showError('Aviso no encontrado');
+    }
+  }, [editMode, editLoading, editListing, prefilled]);
+
+  const handlePickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showError('Permiso requerido', 'Necesitamos acceso a tu galeria para seleccionar fotos');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: 10 - images.length,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      const newUris = result.assets.map(a => a.uri);
+      setImages(prev => [...prev, ...newUris]);
     }
   };
-  const handleCheckSession = async () => {
-    const { data: { session: s } } = await supabase.auth.getSession();
-    const { data: { user: u } } = await supabase.auth.getUser();
-    setDebugInfo(
-      'Context user: ' + (user ? user.email : 'null') + '\n' +
-      'Context session: ' + (session ? session.user?.email : 'null') + '\n' +
-      'getSession: ' + (s ? s.user?.email : 'null') + '\n' +
-      'getUser: ' + (u ? u.email : 'null') + '\n' +
-      'isLoading: ' + isLoading
-    );
-  };
-  const addDebug = (msg: string) => {
-    setDebugInfo(prev => prev + '\n' + msg);
+
+  const handleRemoveImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handlePublish = async () => {
-    if (!title.trim()) return Alert.alert('Error', 'Ingresa un titulo');
-    if (!selectedCategory) return Alert.alert('Error', 'Selecciona una categoria');
+    if (!title.trim()) return showError('Error', 'Ingresa un titulo');
+    if (!selectedCategory) return showError('Error', 'Selecciona una categoria');
+    if (!user) return showError('Error', 'Debes iniciar sesion');
+
     setLoading(true);
-    const { error } = await supabase.from('listings').insert({
-      user_id: user?.id,
+
+    // Subir imágenes nuevas a Supabase Storage
+    const uploadedUrls: string[] = [];
+    for (const uri of images) {
+      if (uri.startsWith('http')) {
+        uploadedUrls.push(uri);
+      } else {
+        try {
+          const publicUrl = await uploadImage(uri, user.id);
+          uploadedUrls.push(publicUrl);
+        } catch (uploadError) {
+          console.error('Error subiendo imagen:', uploadError);
+          // No bloquear el update — imágenes que fallan se omiten
+        }
+      }
+    }
+
+    // Validar que category_id sea UUID
+    const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const updates = {
       title,
       description,
       price: priceType === 'fixed' && price ? parseFloat(price) : null,
       price_type: priceType,
       location,
-      category_id: selectedCategory,
-      images,
-    });
-    setLoading(false);
-    if (error) Alert.alert('Error', error.message);
-    else {
-      Alert.alert('Exito', 'Publicacion creada');
-      setTitle('');
-      setDescription('');
-      setPrice('');
-      setLocation('');
-      setSelectedCategory(null);
-      setImages([]);
+      category_id: isValidUUID.test(selectedCategory) ? selectedCategory : null,
+      images: uploadedUrls,
+    };
+
+    if (editMode && edit) {
+      // Compute removed images for cleanup
+      const removedImages = initialImages.filter((url) => !images.includes(url));
+
+      editMutation.mutate(
+        { id: edit, updates, removedImages },
+        {
+          onSuccess: () => {
+            setLoading(false);
+            showSuccess('Exito', 'Aviso actualizado');
+            queryClient.invalidateQueries({ queryKey: ['listings'] });
+            queryClient.invalidateQueries({ queryKey: ['my-listings'] });
+          },
+          onError: (err) => {
+            setLoading(false);
+            const msg = err instanceof Error ? err.message : 'Error al actualizar';
+            showError('Error', msg);
+          },
+        },
+      );
+    } else {
+      const { error } = await supabase.from('listings').insert({
+        ...updates,
+        user_id: user.id,
+      });
+
+      setLoading(false);
+
+      if (error) {
+        showError('Error', error.message);
+      } else {
+        showSuccess('Exito', 'Publicacion creada');
+        queryClient.invalidateQueries({ queryKey: ['listings'] });
+        setTitle('');
+        setDescription('');
+        setPrice('');
+        setLocation('');
+        setSelectedCategory(null);
+        setImages([]);
+      }
     }
   };
-
-  const handleToggleDebug = () => setShowDebug(!showDebug);
 
   if (!user) {
     return (
@@ -108,45 +187,13 @@ export default function PublishScreen() {
             <ArrowLeft size={24} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Publicar</Text>
-          <TouchableOpacity onPress={handleToggleDebug} style={{ marginLeft: 'auto', padding: 4 }}>
-            <Text style={{ fontSize: 12, color: Colors.primary }}>{showDebug ? 'Ocultar debug' : 'Debug'}</Text>
-          </TouchableOpacity>
         </View>
-        <View style={styles.authGate}>
-          <Text style={styles.authTitle}>Inicia sesion para publicar</Text>
-          <Text style={styles.authSubtitle}>Publica tus avisos gratuitamente. Solo necesitas una cuenta.</Text>
-          <TextInput style={styles.input} placeholder="Email" placeholderTextColor={Colors.textMuted} value={loginEmail} onChangeText={setLoginEmail} autoCapitalize="none" keyboardType="email-address" />
-          <TextInput style={styles.input} placeholder="Contrasena" placeholderTextColor={Colors.textMuted} value={loginPassword} onChangeText={setLoginPassword} secureTextEntry />
-          <TouchableOpacity style={styles.authBtn} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.authBtnText}>Iniciar sesion</Text>
+        <View style={styles.emptyAuth}>
+          <Text style={styles.emptyAuthTitle}>Inicia sesion para publicar</Text>
+          <Text style={styles.emptyAuthSubtitle}>Publica tus avisos gratuitamente. Solo necesitas una cuenta.</Text>
+          <TouchableOpacity style={styles.emptyAuthBtn} onPress={() => router.push('/login')}>
+            <Text style={styles.emptyAuthBtnText}>Iniciar sesion</Text>
           </TouchableOpacity>
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
-            <View style={styles.dividerLine} />
-          </View>
-          <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleLogin} disabled={loading}>
-            <Text style={styles.googleBtnText}>Continuar con Google</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/register')}>
-            <Text style={styles.authLink}>No tenes cuenta? Registrate</Text>
-          </TouchableOpacity>
-
-          {showDebug && (
-            <View style={styles.debugPanel}>
-              <Text style={styles.debugTitle}>🔍 Debug Auth</Text>
-              <Text style={styles.debugText}>{debugInfo || 'Esperando acción...'}</Text>
-              <TouchableOpacity style={styles.debugBtn} onPress={handleCheckSession}>
-                <Text style={styles.debugBtnText}>Chequear sesión ahora</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.debugBtn} onPress={async () => { const r = await refreshSession(); addDebug('refreshSession manual: ' + r); }}>
-                <Text style={styles.debugBtnText}>Forzar refreshSession</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.debugBtn} onPress={() => { setDebugInfo(getAuthDebug() || '(vacio)'); }}>
-                <Text style={styles.debugBtnText}>Ver log AuthContext</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </View>
     );
@@ -155,10 +202,10 @@ export default function PublishScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => { editMode ? (router.setParams({}), router.back()) : router.back(); }}>
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nueva publicacion</Text>
+        <Text style={styles.headerTitle}>{editMode ? 'Editar aviso' : 'Nueva publicacion'}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.form}>
@@ -220,8 +267,34 @@ export default function PublishScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Fotos {images.length > 0 ? `(${images.length}/10)` : ''}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.imageRow}>
+              {images.map((uri, index) => (
+                <View key={uri} style={styles.imageThumbWrapper}>
+                  <Image source={{ uri }} style={styles.imageThumb} />
+                  <TouchableOpacity
+                    style={styles.imageRemoveBtn}
+                    onPress={() => handleRemoveImage(index)}>
+                    <X size={14} color={Colors.white} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              {images.length < 10 && (
+                <TouchableOpacity style={styles.addImageBtn} onPress={handlePickImage}>
+                  <Plus size={24} color={Colors.textMuted} />
+                  <Text style={styles.addImageText}>Agregar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+
         <TouchableOpacity style={[styles.publishBtn, loading && { opacity: 0.6 }]} onPress={handlePublish} disabled={loading}>
-          <Text style={styles.publishBtnText}>{loading ? 'Publicando...' : 'Publicar aviso'}</Text>
+          <Text style={styles.publishBtnText}>
+            {loading ? (editMode ? 'Guardando...' : 'Publicando...') : (editMode ? 'Guardar cambios' : 'Publicar aviso')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -232,17 +305,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
-  authGate: { padding: 24, gap: 12 },
-  authTitle: { fontSize: 22, fontWeight: '700', color: Colors.text },
-  authSubtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 8 },
-  authBtn: { backgroundColor: Colors.primary, padding: 14, borderRadius: 14, alignItems: 'center' },
-  authBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
-  authLink: { color: Colors.primary, textAlign: 'center', fontWeight: '600', fontSize: 14 },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { marginHorizontal: 12, fontSize: 13, color: Colors.textMuted },
-  googleBtn: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, padding: 14, borderRadius: 14, alignItems: 'center' },
-  googleBtnText: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  emptyAuth: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 },
+  emptyAuthTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, textAlign: 'center' },
+  emptyAuthSubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  emptyAuthBtn: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
+  emptyAuthBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
   form: { padding: 16, gap: 20, paddingBottom: 40 },
   section: { gap: 8 },
   sectionLabel: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
@@ -257,9 +324,10 @@ const styles = StyleSheet.create({
   priceTypeText: { fontSize: 13, fontWeight: '600', color: Colors.text },
   publishBtn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   publishBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
-  debugPanel: { marginTop: 16, padding: 12, backgroundColor: '#1a1a2e', borderRadius: 12, gap: 8 },
-  debugTitle: { color: '#e0e0e0', fontWeight: '700', fontSize: 12 },
-  debugText: { color: '#0f0', fontSize: 11, fontFamily: 'monospace', lineHeight: 16 },
-  debugBtn: { backgroundColor: '#333', padding: 8, borderRadius: 8, alignItems: 'center' },
-  debugBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  imageRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  imageThumbWrapper: { position: 'relative' },
+  imageThumb: { width: 80, height: 80, borderRadius: 12, backgroundColor: Colors.borderLight },
+  imageRemoveBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  addImageBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  addImageText: { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
 });

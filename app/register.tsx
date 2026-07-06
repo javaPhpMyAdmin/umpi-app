@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { showError } from '@/lib/toast';
+import BottomSheetDialog from '@/components/BottomSheetDialog';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -13,17 +15,16 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleRegister = async () => {
-    if (!fullName.trim() || !email.trim() || !password.trim()) return Alert.alert('Error', 'Completa todos los campos');
-    if (password.length < 6) return Alert.alert('Error', 'La contrasena debe tener al menos 6 caracteres');
+    if (!fullName.trim() || !email.trim() || !password.trim()) return showError('Error', 'Completa todos los campos');
+    if (password.length < 6) return showError('Error', 'La contrasena debe tener al menos 6 caracteres');
     setLoading(true);
     const { error } = await signUp(email, password, fullName);
     setLoading(false);
-    if (error) Alert.alert('Error', error.message);
-    else Alert.alert('Exito', 'Cuenta creada. Ahora inicia sesion.', [
-      { text: 'OK', onPress: () => router.push('/login') }
-    ]);
+    if (error) showError('Error', error.message);
+    else setShowSuccess(true);
   };
 
   return (
@@ -50,6 +51,16 @@ export default function RegisterScreen() {
       <TouchableOpacity onPress={() => router.push('/login')}>
         <Text style={styles.link}>Ya tenes cuenta? <Text style={styles.linkBold}>Inicia sesion</Text></Text>
       </TouchableOpacity>
+
+      <BottomSheetDialog
+        visible={showSuccess}
+        onClose={() => { setShowSuccess(false); router.push('/login'); }}
+        icon={<CheckCircle size={28} color={Colors.success} />}
+        title="Cuenta creada"
+        message="Tu cuenta se creo correctamente. Ahora inicia sesion para empezar a publicar."
+        primaryLabel="Iniciar sesion"
+        primaryAction={() => { setShowSuccess(false); router.push('/login'); }}
+      />
     </View>
   );
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { showError } from '@/lib/toast';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -18,11 +19,11 @@ export default function LoginScreen() {
   }, [user]);
 
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) return Alert.alert('Error', 'Completa todos los campos');
+    if (!email.trim() || !password.trim()) return showError('Error', 'Completa todos los campos');
     setLoading(true);
     const { error } = await signIn(email, password);
     setLoading(false);
-    if (error) Alert.alert('Error', error.message);
+    if (error) showError('Error', error.message);
     else router.replace('/(tabs)');
   };
 
@@ -30,7 +31,7 @@ export default function LoginScreen() {
     setLoading(true);
     const { error } = await signInWithGoogle();
     setLoading(false);
-    if (error) Alert.alert('Error', error.message);
+    if (error) showError('Error', error.message);
   };
 
   return (

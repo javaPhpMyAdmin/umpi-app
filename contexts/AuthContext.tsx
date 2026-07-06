@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -19,7 +19,6 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
-  getAuthDebug: () => string;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -33,7 +32,6 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   refreshProfile: async () => {},
   refreshSession: async () => false,
-  getAuthDebug: () => '',
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -41,12 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const authDebugRef = useRef<string[]>([]);
-  const logAuthDebug = (msg: string) => {
-    authDebugRef.current.push(new Date().toLocaleTimeString() + ' ' + msg);
-    console.log('[AuthDebug]', msg);
-  };
-  const getAuthDebug = () => authDebugRef.current.join('\n');
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -109,47 +101,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     const isWeb = Platform.OS === 'web';
     const redirectUrl = isWeb ? `${window.location.origin}/` : Linking.createURL('auth/callback');
-    logAuthDebug('1. redirectTo: ' + redirectUrl);
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: redirectUrl },
     });
-    if (error) {
-      logAuthDebug('2. ✗ signInWithOAuth error: ' + error.message);
-      return { error };
-    }
-    logAuthDebug('2. ✓ Got auth URL: ' + (data?.url?.substring(0, 60) + '...'));
+    if (error) return { error };
 
-    if (!data?.url) {
-      logAuthDebug('3. ✗ No auth URL returned');
-      return { error: new Error('No auth URL') };
-    }
+    if (!data?.url) return { error: new Error('No auth URL') };
 
     if (isWeb) {
       window.location.href = data.url;
       return { error: null };
     }
 
-    logAuthDebug('3. ▶ Opening openAuthSessionAsync...');
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-    logAuthDebug('4. ◀ Result type: ' + result.type + ', hasUrl: ' + !!result.url);
 
     if (result.type === 'success' && result.url) {
-      logAuthDebug('5. URL: ' + result.url.substring(0, 120));
-
       // Intento 1: PKCE flow — code en query string (?code=xxx)
       const codeMatch = result.url.match(/[?&]code=([^&]+)/);
       if (codeMatch) {
-        logAuthDebug('6. ✓ PKCE code found in query string');
         try {
           await supabase.auth.exchangeCodeForSession(decodeURIComponent(codeMatch[1]));
-          logAuthDebug('7. ✓ exchangeCodeForSession OK');
         } catch (e) {
-          logAuthDebug('7. ✗ exchangeCodeForSession error: ' + (e instanceof Error ? e.message : String(e)));
+          // Silently fail - fallback to implicit
         }
       } else {
-        logAuthDebug('6. ✗ No PKCE code — checking implicit flow (fragment)...');
         // Intento 2: Implicit flow — tokens en el fragmento (#access_token=xxx&refresh_token=yyy)
         const fragment = result.url.split('#')[1];
         if (fragment) {
@@ -158,35 +135,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const [k, v] = pair.split('=');
             if (k && v) fragmentParams[k] = decodeURIComponent(v);
           });
-          logAuthDebug('7. Fragment keys: ' + Object.keys(fragmentParams).join(', '));
           if (fragmentParams.access_token) {
-            logAuthDebug('8. ✓ access_token found in fragment, calling setSession...');
             try {
               await supabase.auth.setSession({
                 access_token: fragmentParams.access_token,
                 refresh_token: fragmentParams.refresh_token || '',
               });
-              logAuthDebug('9. ✓ setSession OK');
             } catch (e) {
-              logAuthDebug('9. ✗ setSession error: ' + (e instanceof Error ? e.message : String(e)));
+              // Silently fail
             }
-          } else {
-            logAuthDebug('8. ✗ No access_token in fragment either');
           }
-        } else {
-          logAuthDebug('7. ✗ No fragment in URL');
         }
       }
-    } else {
-      logAuthDebug('5. ✗ No success URL — browser likely cancelled/dismissed');
     }
 
     // Verificar sesión después
     await new Promise(r => setTimeout(r, 500));
-    const { data: { session: s } } = await supabase.auth.getSession();
-    logAuthDebug('8. getSession post-flow: ' + (s ? s.user?.email : 'null'));
-    const { data: { user: u } } = await supabase.auth.getUser();
-    logAuthDebug('9. getUser post-flow: ' + (u ? u.email : 'null'));
 
     return { error: null };
   };
@@ -223,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, isLoading, signIn, signInWithGoogle, signUp, signOut, refreshProfile, refreshSession, getAuthDebug }}>
+    <AuthContext.Provider value={{ user, session, profile, isLoading, signIn, signInWithGoogle, signUp, signOut, refreshProfile, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

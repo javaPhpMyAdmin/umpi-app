@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Category } from '@/types';
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { mockCategories } from '@/constants/mockData';
+import { showError, showSuccess } from '@/lib/toast';
+import BottomSheetDialog from '@/components/BottomSheetDialog';
 
 export default function AdminCategoriesScreen() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function AdminCategoriesScreen() {
   const [icon, setIcon] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -26,11 +28,10 @@ export default function AdminCategoriesScreen() {
   const fetchCategories = async () => {
     const { data } = await supabase.from('categories').select('*').order('name');
     if (data) setCategories(data as Category[]);
-    else setCategories(mockCategories);
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !slug.trim() || !icon.trim()) return Alert.alert('Error', 'Completa nombre, slug e icono');
+    if (!name.trim() || !slug.trim() || !icon.trim()) return showError('Error', 'Completa nombre, slug e icono');
     setLoading(true);
     const { error } = await supabase.from('categories').insert({
       name: name.trim(),
@@ -39,9 +40,9 @@ export default function AdminCategoriesScreen() {
       image_url: imageUrl.trim() || null,
     });
     setLoading(false);
-    if (error) Alert.alert('Error', error.message);
+    if (error) showError('Error', error.message);
     else {
-      Alert.alert('Exito', 'Categoria creada');
+      showSuccess('Exito', 'Categoria creada');
       setName('');
       setSlug('');
       setIcon('');
@@ -51,14 +52,15 @@ export default function AdminCategoriesScreen() {
   };
 
   const handleDelete = async (id: string) => {
-    Alert.alert('Eliminar', 'Seguro que queres eliminar esta categoria?', [
-      { text: 'Cancelar' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        const { error } = await supabase.from('categories').delete().eq('id', id);
-        if (error) Alert.alert('Error', error.message);
-        else fetchCategories();
-      }}
-    ]);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from('categories').delete().eq('id', deleteTarget);
+    setDeleteTarget(null);
+    if (error) showError('Error', error.message);
+    else fetchCategories();
   };
 
   if (!profile?.is_admin) {
@@ -105,6 +107,18 @@ export default function AdminCategoriesScreen() {
           ))}
         </View>
       </ScrollView>
+
+      <BottomSheetDialog
+        visible={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        icon={<Trash2 size={28} color={Colors.error} />}
+        title="Eliminar categoria"
+        message="Seguro que queres eliminar esta categoria? Esta accion no se puede deshacer."
+        primaryLabel="Eliminar"
+        primaryAction={confirmDelete}
+        secondaryLabel="Cancelar"
+        destructiveSecondary
+      />
     </View>
   );
 }

@@ -44,7 +44,7 @@ export interface Profile {
   avatar_url: string | null;
   phone: string | null;
   rating: number;
-  total_sales: number;
+  reviews_count: number;
   total_listings: number;
   subscription_type: string;
   subscription_expires_at: string | null;

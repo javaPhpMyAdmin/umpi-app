@@ -6,17 +6,16 @@ import { Colors } from '@/constants/colors';
 import { Category, Listing } from '@/types';
 import { ListingCard } from '@/components/ListingCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
-import { mockListings, mockCategories } from '@/constants/mockData';
 import { supabase } from '@/lib/supabase';
 
 export default function ExploreScreen() {
   const params = useLocalSearchParams();
   const [query, setQuery] = useState((params.q as string) || '');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>((params.featured as string) === 'true' ? 'destacados' : null);
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
-  const [listings, setListings] = useState<Listing[]>(mockListings);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<'recent' | 'price_asc' | 'price_desc' | 'featured'>('featured');
+  const [sortBy, setSortBy] = useState<'recent' | 'price_asc' | 'price_desc' | 'featured'>('recent');
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
@@ -33,19 +32,17 @@ export default function ExploreScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('listings')
-      .select('*, category:category_id(*), user:user_id(*)')
+      .select('*, category:category_id(*)')
       .eq('status', 'active')
       .order('created_at', { ascending: false });
     if (data) setListings(data as Listing[]);
-    else setListings(mockListings);
     setLoading(false);
   };
 
   const filtered = listings.filter(item => {
     const matchesQuery = !query || item.title.toLowerCase().includes(query.toLowerCase()) || (item.description?.toLowerCase() || '').includes(query.toLowerCase());
     const matchesCategory = !selectedCategory || selectedCategory === 'todos' || item.category?.slug === selectedCategory || item.category?.name === selectedCategory;
-    const matchesFeatured = selectedCategory !== 'destacados' || item.is_featured || item.listing_priority > 0;
-    return matchesQuery && matchesCategory && matchesFeatured;
+    return matchesQuery && matchesCategory;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -91,8 +88,8 @@ export default function ExploreScreen() {
             <Text style={styles.filterLabel}>Ordenar</Text>
             <View style={styles.filterOptions}>
               {[
-                { key: 'featured', label: 'Destacados' },
                 { key: 'recent', label: 'Recientes' },
+                { key: 'featured', label: 'Destacados' },
                 { key: 'price_asc', label: 'Precio ↓' },
                 { key: 'price_desc', label: 'Precio ↑' },
               ].map(opt => (
@@ -108,44 +105,36 @@ export default function ExploreScreen() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-        <View style={styles.categoriesRow}>
-          <CategoryBadge
-            category={{ id: 'all', name: 'Todos', slug: 'todos', icon: 'Sparkles', total_count: 0, is_active: true, created_at: '', image_url: '' }}
-            isActive={selectedCategory === null || selectedCategory === 'todos'}
-            onPress={() => setSelectedCategory(null)}
-          />
-          <CategoryBadge
-            category={{ id: 'featured', name: 'Destacados', slug: 'destacados', icon: 'Star', total_count: 0, is_active: true, created_at: '', image_url: '' }}
-            isActive={selectedCategory === 'destacados'}
-            onPress={() => setSelectedCategory(selectedCategory === 'destacados' ? null : 'destacados')}
-          />
-          {categories.filter(c => c.slug !== 'todos').map(cat => (
-            <CategoryBadge
-              key={cat.id}
-              category={cat}
-              isActive={selectedCategory === cat.slug}
-              onPress={() => setSelectedCategory(selectedCategory === cat.slug ? null : cat.slug)}
-            />
-          ))}
-        </View>
-      </ScrollView>
-
-      <View style={styles.statsBar}>
-        <Text style={styles.statsText}>{sorted.length} avisos encontrados</Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.grid}>
-        <View style={styles.listGrid}>
-          {sorted.map(item => (
-            <ListingCard key={item.id} listing={item} variant="compact" />
-          ))}
-        </View>
-        {sorted.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No se encontraron avisos</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+          <View style={styles.categoriesRow}>
+            {categories.map(cat => (
+              <CategoryBadge
+                key={cat.id}
+                category={cat}
+                isActive={selectedCategory === cat.slug}
+                onPress={() => setSelectedCategory(selectedCategory === cat.slug ? null : cat.slug)}
+              />
+            ))}
           </View>
-        )}
+        </ScrollView>
+
+        <View style={styles.statsBar}>
+          <Text style={styles.statsText}>{sorted.length} avisos encontrados</Text>
+        </View>
+
+        <View style={styles.grid}>
+          <View style={styles.listGrid}>
+            {sorted.map(item => (
+              <ListingCard key={item.id} listing={item} variant="compact" />
+            ))}
+          </View>
+          {sorted.length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>No se encontraron avisos</Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -166,11 +155,12 @@ const styles = StyleSheet.create({
   filterOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterChip: { backgroundColor: Colors.borderLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   filterChipText: { fontSize: 12, fontWeight: '600', color: Colors.text },
-  categoryScroll: { marginTop: 12 },
-  categoriesRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10 },
-  statsBar: { paddingHorizontal: 16, marginTop: 12 },
+  scrollContent: { paddingBottom: 24 },
+  categoryScroll: { marginTop: 16, paddingHorizontal: 16 },
+  categoriesRow: { flexDirection: 'row', gap: 10, paddingRight: 16 },
+  statsBar: { paddingHorizontal: 16, marginTop: 16, marginBottom: 4 },
   statsText: { fontSize: 13, color: Colors.textMuted, fontWeight: '500' },
-  grid: { paddingHorizontal: 16, paddingBottom: 24, marginTop: 12 },
+  grid: { paddingHorizontal: 16, marginTop: 12 },
   listGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   empty: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 15, color: Colors.textMuted },

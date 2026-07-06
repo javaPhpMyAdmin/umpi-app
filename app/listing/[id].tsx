@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, Tag } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, Tag, LogIn, Edit3, Trash2, MoreHorizontal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Listing, Profile } from '@/types';
 import ReviewModal from '@/components/ReviewModal';
+import { showError, showSuccess } from '@/lib/toast';
+import BottomSheetDialog from '@/components/BottomSheetDialog';
+import ActionSheet from '@/components/ActionSheet';
+import { useDeleteListing } from '@/hooks/useListings';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
@@ -14,10 +18,16 @@ export default function ListingDetailScreen() {
   const { user } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
   const [seller, setSeller] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [hasConversation, setHasConversation] = useState<string | null>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const isOwner = !!user && !!listing && listing.user_id === user.id;
+  const deleteMutation = useDeleteListing();
 
   useEffect(() => {
     fetchListing();
@@ -86,11 +96,35 @@ export default function ListingDetailScreen() {
     }
   };
 
+  const handleEdit = () => {
+    router.push(`/publish?edit=${listing?.id}`);
+  };
+
+  const handleDeleteConfirm = () => {
+    setShowActionSheet(false);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDelete = () => {
+    if (!listing) return;
+    setShowDeleteConfirm(false);
+    deleteMutation.mutate(
+      { id: listing.id, images: listing.images || [] },
+      {
+        onSuccess: () => {
+          showSuccess('Eliminado', 'Aviso eliminado');
+          router.back();
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : 'Error al eliminar el aviso';
+          showError('Error', msg);
+        },
+      },
+    );
+  };
+
   const handleContact = async () => {
-    if (!user) return Alert.alert('Inicia sesion', 'Necesitas una cuenta para contactar al vendedor', [
-      { text: 'Cancelar' },
-      { text: 'Iniciar sesion', onPress: () => router.push('/login') }
-    ]);
+    if (!user) return setShowLoginPrompt(true);
     if (!listing || user.id === listing.user_id) return;
     const { data } = await supabase
       .from('conversations')
@@ -111,7 +145,7 @@ export default function ListingDetailScreen() {
         })
         .select('id')
         .single();
-      if (error) Alert.alert('Error', error.message);
+      if (error) showError('Error', error.message);
       else if (conv) router.push(`/chat/${conv.id}`);
     }
   };
@@ -184,8 +218,11 @@ export default function ListingDetailScreen() {
                 <View style={styles.sellerMeta}>
                   <Star size={12} color={Colors.star} fill={Colors.star} />
                   <Text style={styles.sellerMetaText}>{seller?.rating?.toFixed(1) || '5.0'}</Text>
-                  <Text style={styles.sellerMetaText}>· {seller?.total_sales || 0} ventas</Text>
+                  <Text style={styles.sellerMetaText}>· {seller?.reviews_count || 0} calificaciones</Text>
                 </View>
+                <Text style={styles.sellerMemberSince}>
+                  Miembro desde {seller?.created_at ? new Date(seller.created_at).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : 'desconocido'}
+                </Text>
               </View>
             </View>
           </View>
@@ -210,11 +247,50 @@ export default function ListingDetailScreen() {
         conversationId={hasConversation || ''}
       />
 
+      <BottomSheetDialog
+        visible={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        icon={<LogIn size={28} color={Colors.primary} />}
+        title="Inicia sesion"
+        message="Necesitas una cuenta para contactar al vendedor."
+        primaryLabel="Iniciar sesion"
+        primaryAction={() => { setShowLoginPrompt(false); router.push('/login'); }}
+        secondaryLabel="Cancelar"
+      />
+
+      <ActionSheet
+        visible={showActionSheet}
+        onClose={() => setShowActionSheet(false)}
+        options={[
+          { label: 'Editar', icon: <Edit3 size={20} color={Colors.text} />, action: handleEdit },
+          { label: 'Eliminar', icon: <Trash2 size={20} color={Colors.error} />, destructive: true, action: handleDeleteConfirm },
+        ]}
+      />
+
+      <BottomSheetDialog
+        visible={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        icon={<Trash2 size={28} color={Colors.error} />}
+        title="Eliminar aviso"
+        message="Se eliminaran las imagenes y el aviso dejara de ser visible. Esta accion no se puede deshacer."
+        primaryLabel="Eliminar"
+        primaryAction={handleDelete}
+        secondaryLabel="Cancelar"
+        destructiveSecondary
+      />
+
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.contactBtn} onPress={handleContact}>
-          <MessageCircle size={20} color={Colors.white} />
-          <Text style={styles.contactBtnText}>Contactar</Text>
-        </TouchableOpacity>
+        {isOwner ? (
+          <TouchableOpacity style={styles.ownerMenuBtn} onPress={() => setShowActionSheet(true)}>
+            <MoreHorizontal size={20} color={Colors.white} />
+            <Text style={styles.contactBtnText}>Opciones</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.contactBtn} onPress={handleContact}>
+            <MessageCircle size={20} color={Colors.white} />
+            <Text style={styles.contactBtnText}>Contactar</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -245,10 +321,12 @@ const styles = StyleSheet.create({
   sellerName: { fontSize: 15, fontWeight: '700', color: Colors.text },
   sellerMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   sellerMetaText: { fontSize: 12, color: Colors.textMuted },
+  sellerMemberSince: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
   reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.secondary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, marginTop: 12 },
   reviewBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
   reviewedText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', marginTop: 12, textAlign: 'center' },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.surface, padding: 16, borderTopWidth: 1, borderTopColor: Colors.border },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, padding: 16, borderRadius: 14 },
   contactBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
+  ownerMenuBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.textSecondary, padding: 16, borderRadius: 14 },
 });

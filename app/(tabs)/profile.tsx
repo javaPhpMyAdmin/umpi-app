@@ -1,30 +1,58 @@
-import { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Star, Package, TrendingUp, Settings, Crown, LogOut, User, Plus, ChevronRight } from 'lucide-react-native';
+import { Star, Package, TrendingUp, Settings, Crown, LogOut, User, Plus, ChevronRight, Edit3, Trash2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { Profile, Listing } from '@/types';
+import { useMyListings, useDeleteListing } from '@/hooks/useListings';
 import { ListingCard } from '@/components/ListingCard';
+import ActionSheet from '@/components/ActionSheet';
+import BottomSheetDialog from '@/components/BottomSheetDialog';
+import { showError, showSuccess } from '@/lib/toast';
+import { useState } from 'react';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
-  const [myListings, setMyListings] = useState<Listing[]>([]);
+  const { data: myListings = [], isLoading } = useMyListings(user?.id);
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const deleteMutation = useDeleteListing();
 
-  useEffect(() => {
-    if (user) fetchMyListings();
-  }, [user]);
+  const handleCardAction = (id: string) => {
+    setSelectedListingId(id);
+    setShowActionSheet(true);
+  };
 
-  const fetchMyListings = async () => {
-    const { data } = await supabase
-      .from('listings')
-      .select('*, category:category_id(*)')
-      .eq('user_id', user?.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false });
-    if (data) setMyListings(data as Listing[]);
+  const handleEditFromProfile = () => {
+    setShowActionSheet(false);
+    if (selectedListingId) {
+      router.push(`/publish?edit=${selectedListingId}`);
+    }
+  };
+
+  const handleDeleteFromProfile = () => {
+    setShowActionSheet(false);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!selectedListingId) return;
+    setShowDeleteConfirm(false);
+    const listing = myListings.find((l) => l.id === selectedListingId);
+    deleteMutation.mutate(
+      { id: selectedListingId, images: listing?.images || [] },
+      {
+        onSuccess: () => {
+          showSuccess('Eliminado', 'Aviso eliminado');
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : 'Error al eliminar el aviso';
+          showError('Error', msg);
+        },
+      },
+    );
+    setSelectedListingId(null);
   };
 
   const getSubscriptionColor = (type: string) => {
@@ -86,8 +114,8 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>{profile?.total_sales || 0}</Text>
-            <Text style={styles.statLabel}>Ventas</Text>
+            <Text style={styles.statValue}>{profile?.reviews_count || 0}</Text>
+            <Text style={styles.statLabel}>Calificaciones</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
@@ -134,7 +162,13 @@ export default function ProfileScreen() {
           ) : (
             <View style={styles.listingsGrid}>
               {myListings.map(item => (
-                <ListingCard key={item.id} listing={item} variant="compact" />
+                <ListingCard
+                  key={item.id}
+                  listing={item}
+                  variant="compact"
+                  onEdit={() => handleCardAction(item.id)}
+                  onDelete={() => handleCardAction(item.id)}
+                />
               ))}
             </View>
           )}
@@ -145,6 +179,27 @@ export default function ProfileScreen() {
           <Text style={styles.logoutText}>Cerrar sesion</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <ActionSheet
+        visible={showActionSheet}
+        onClose={() => setShowActionSheet(false)}
+        options={[
+          { label: 'Editar', icon: <Edit3 size={20} color={Colors.text} />, action: handleEditFromProfile },
+          { label: 'Eliminar', icon: <Trash2 size={20} color={Colors.error} />, destructive: true, action: handleDeleteFromProfile },
+        ]}
+      />
+
+      <BottomSheetDialog
+        visible={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        icon={<Trash2 size={28} color={Colors.error} />}
+        title="Eliminar aviso"
+        message="Se eliminaran las imagenes y el aviso dejara de ser visible. Esta accion no se puede deshacer."
+        primaryLabel="Eliminar"
+        primaryAction={handleConfirmDelete}
+        secondaryLabel="Cancelar"
+        destructiveSecondary
+      />
     </View>
   );
 }
