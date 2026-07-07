@@ -25,6 +25,7 @@ export default function ListingDetailScreen() {
   const [seller, setSeller] = useState<Profile | null>(null);
   const [hasConversation, setHasConversation] = useState<string | null>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [reviewCheckLoading, setReviewCheckLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -69,25 +70,44 @@ export default function ListingDetailScreen() {
     const run = async () => {
       setHasConversation(null);
       setHasReviewed(false);
-      if (!listing || !user) return;
-      if (listing.user_id === user.id) return;
+      setReviewCheckLoading(true);
+      if (!listing || !user) {
+        setReviewCheckLoading(false);
+        return;
+      }
+      if (listing.user_id === user.id) {
+        setReviewCheckLoading(false);
+        return;
+      }
 
-      const { data: conv } = await supabase
+      // Buscar todas las conversaciones de este listing (archivadas incluidas)
+      const { data: conversations } = await supabase
         .from('conversations')
         .select('id')
         .eq('listing_id', listing.id)
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .maybeSingle();
-      if (!conv) return;
-      setHasConversation(conv.id);
+        .order('created_at', { ascending: false });
 
+      if (!conversations || conversations.length === 0) {
+        setReviewCheckLoading(false);
+        return;
+      }
+
+      // Usar la más reciente para el modal de calificar
+      const latestConv = conversations[0];
+      setHasConversation(latestConv.id);
+
+      // Buscar si YA calificó en cualquiera de las conversaciones
+      const convIds = conversations.map((c: { id: string }) => c.id);
       const { data: review } = await supabase
         .from('reviews')
         .select('id')
-        .eq('conversation_id', conv.id)
+        .in('conversation_id', convIds)
         .eq('reviewer_id', user.id)
         .maybeSingle();
+
       if (review) setHasReviewed(true);
+      setReviewCheckLoading(false);
     };
     run();
   }, [listing?.id, user?.id]);
@@ -138,27 +158,26 @@ export default function ListingDetailScreen() {
   const handleContact = async () => {
     if (!user) return setShowLoginPrompt(true);
     if (!listing || user.id === listing.user_id) return;
+
+    // Buscar cualquier conversación existente (incluso archivada)
     const { data } = await supabase
       .from('conversations')
       .select('id')
       .eq('listing_id', listing.id)
       .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
       .maybeSingle();
+
     if (data) {
+      // Si estaba archivada, la reabrimos
+      await supabase.rpc('reopen_conversation', {
+        conv_id: data.id,
+        user_id: user.id,
+      });
       router.push(`/chat/${data.id}`);
     } else {
-      const otherId = listing.user_id;
-      const { data: conv, error } = await supabase
-        .from('conversations')
-        .insert({
-          listing_id: listing.id,
-          user1_id: user.id,
-          user2_id: otherId,
-        })
-        .select('id')
-        .single();
-      if (error) showError('Error', error.message);
-      else if (conv) router.push(`/chat/${conv.id}`);
+      // No se crea la conversación aún — se crea al enviar el primer mensaje
+      const name = encodeURIComponent(seller?.full_name || 'Usuario');
+      router.push(`/chat/new?listingId=${listing.id}&otherUserId=${listing.user_id}&otherName=${name}`);
     }
   };
 
@@ -259,7 +278,7 @@ export default function ListingDetailScreen() {
             </View>
           </View>
 
-          {user && listing.user_id !== user.id && hasConversation ? (
+          {user && listing.user_id !== user.id && hasConversation && !reviewCheckLoading ? (
             hasReviewed ? (
               <Text style={styles.reviewedText}>Ya calificaste este aviso</Text>
             ) : (

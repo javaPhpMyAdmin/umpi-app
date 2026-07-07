@@ -1,39 +1,35 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { MessageCircle, ArrowRight } from 'lucide-react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { MessageCircle, ArrowRight, Trash2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { Conversation } from '@/types';
+import { useConversations, useArchiveConversation } from '@/hooks/useConversations';
 import { SkeletonCard } from '@/components/SkeletonCard';
 
 export default function MessagesScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: conversations, isLoading, refetch } = useConversations(user?.id);
+  const archiveMutation = useArchiveConversation();
+  const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    if (user) fetchConversations();
-  }, [user]);
-
-  const fetchConversations = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('conversations')
-      .select('*, listing:listing_id(*), user1:user1_id(*), user2:user2_id(*)')
-      .or(`user1_id.eq.${user?.id},user2_id.eq.${user?.id}`)
-      .order('last_message_at', { ascending: false });
-    if (data) {
-      const convs = (data as any[]).map(c => {
-        const other = c.user1_id === user?.id ? c.user2 : c.user1;
-        return { ...c, other_user: other } as Conversation;
-      });
-      setConversations(convs);
-    }
-    setLoading(false);
+  const confirmArchive = () => {
+    if (!archiveTarget || !user) return;
+    archiveMutation.mutate({
+      conversationId: archiveTarget.id,
+      userId: user.id,
+    });
+    setArchiveTarget(null);
   };
+
+  // Refrescar en background cada vez que se enfoca el tab,
+  // pero TanStack Query devuelve caché si aún está fresh
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   if (!user) {
     return (
@@ -58,27 +54,57 @@ export default function MessagesScreen() {
         <Text style={styles.headerTitle}>Mensajes</Text>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {loading ? (
+        {isLoading ? (
           [1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} variant="conversation" />)
-        ) : conversations.length === 0 ? (
+        ) : !conversations || conversations.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No tenes conversaciones aun</Text>
             <Text style={styles.emptySubtext}>Contacta a un vendedor desde cualquier aviso</Text>
           </View>
-        ) : null}
-        {conversations.map(conv => (
-          <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}`)} activeOpacity={0.7}>
+        ) : (
+        conversations.map(conv => (
+          <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}`)} onLongPress={() => setArchiveTarget({ id: conv.id, name: conv.other_user?.full_name || 'Usuario' })} activeOpacity={0.7}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{(conv.other_user?.full_name || '?')[0]}</Text>
             </View>
             <View style={styles.convInfo}>
               <Text style={styles.convName}>{conv.other_user?.full_name || 'Usuario'}</Text>
               <Text style={styles.convListing} numberOfLines={1}>{conv.listing?.title || 'Sin titulo'}</Text>
+              {conv.last_message?.content && (
+                <Text style={styles.lastMessage} numberOfLines={1}>
+                  {conv.last_message.content}
+                </Text>
+              )}
             </View>
             <ArrowRight size={18} color={Colors.textMuted} />
           </TouchableOpacity>
-        ))}
+        )))}
       </ScrollView>
+
+      {/* Modal de confirmación para eliminar conversación */}
+      <Modal visible={!!archiveTarget} transparent animationType="fade" onRequestClose={() => setArchiveTarget(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setArchiveTarget(null)}>
+          <Pressable style={styles.modalContent}>
+            <View style={styles.modalIcon}>
+              <Trash2 size={24} color={Colors.error} />
+            </View>
+            <Text style={styles.modalTitle}>Eliminar conversación</Text>
+            <Text style={styles.modalText}>
+              ¿Eliminar la conversación con{' '}
+              <Text style={styles.modalBold}>{archiveTarget?.name}</Text>?
+              Solo la vas a eliminar de tu lista, la otra persona no pierde nada.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setArchiveTarget(null)}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalDelete} onPress={confirmArchive}>
+                <Text style={styles.modalDeleteText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -100,5 +126,18 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 16, fontWeight: '700', color: Colors.white },
   convInfo: { flex: 1 },
   convName: { fontSize: 15, fontWeight: '700', color: Colors.text },
-  convListing: { fontSize: 13, color: Colors.textMuted, marginTop: 2 },
+  convListing: { fontSize: 13, fontWeight: '600', color: Colors.primary, marginTop: 2 },
+  lastMessage: { fontSize: 13, color: Colors.textMuted },
+  // Modal
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  modalContent: { backgroundColor: Colors.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center', shadowColor: Colors.black, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12 },
+  modalIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 8, textAlign: 'center' },
+  modalText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  modalBold: { fontWeight: '700', color: Colors.text },
+  modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.borderLight, alignItems: 'center' },
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: Colors.text },
+  modalDelete: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.error, alignItems: 'center' },
+  modalDeleteText: { fontSize: 15, fontWeight: '700', color: Colors.white },
 });
