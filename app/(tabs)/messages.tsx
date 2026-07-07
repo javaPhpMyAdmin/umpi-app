@@ -7,6 +7,7 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversations, useArchiveConversation } from '@/hooks/useConversations';
 import { SkeletonCard } from '@/components/SkeletonCard';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
@@ -66,9 +67,7 @@ export default function MessagesScreen() {
         ) : (
         conversations.map(conv => (
           <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}`)} onLongPress={() => setArchiveTarget({ id: conv.id, name: conv.other_user?.full_name || 'Usuario' })} activeOpacity={0.7}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(conv.other_user?.full_name || '?')[0]}</Text>
-            </View>
+            <UserAvatar url={conv.other_user?.avatar_url} name={conv.other_user?.full_name} size={44} />
             <View style={styles.convInfo}>
               <Text style={styles.convName}>{conv.other_user?.full_name || 'Usuario'}</Text>
               <Text style={styles.convListing} numberOfLines={1}>{conv.listing?.title || 'Sin titulo'}</Text>

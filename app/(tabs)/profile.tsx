@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMyListings, useDeleteListing } from '@/hooks/useListings';
 import { ListingCard } from '@/components/ListingCard';
 import { SkeletonCard } from '@/components/SkeletonCard';
+import { UserAvatar } from '@/components/UserAvatar';
 import ActionSheet from '@/components/ActionSheet';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import { showError, showSuccess } from '@/lib/toast';
@@ -97,9 +98,7 @@ export default function ProfileScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(profile?.full_name || user?.email || '?')[0].toUpperCase()}</Text>
-          </View>
+          <UserAvatar url={profile?.avatar_url} name={profile?.full_name} size={56} />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile?.full_name || 'Usuario'}</Text>
             <Text style={styles.profileEmail}>{user?.email}</Text>

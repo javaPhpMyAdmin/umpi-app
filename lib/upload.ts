@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { supabase } from './supabase';
 
 /**
@@ -39,12 +40,27 @@ export async function uploadImage(uri: string, userId: string): Promise<string> 
   const ext = uri.split('.').pop()?.toLowerCase() || 'jpg';
   const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg';
   const filePath = generateFilePath(userId, safeExt);
-  const contentType = mimeFromExt(safeExt);
+  let contentType = mimeFromExt(safeExt);
+
+  // Comprimir y redimensionar la imagen antes de subir (ahorra espacio + ancho de banda)
+  let processedUri = uri;
+  try {
+    const result = await manipulateAsync(
+      uri,
+      [{ resize: { width: 1200 } }],
+      { compress: 0.8, format: SaveFormat.JPEG },
+    );
+    processedUri = result.uri;
+    contentType = 'image/jpeg'; // la compresión convierte a JPEG
+  } catch {
+    // Si falla la manipulación, subir la original
+    console.warn('Image manipulation failed, using original');
+  }
 
   // Read the file as base64 via expo-file-system (reliable in React Native)
   let base64: string;
   try {
-    base64 = await FileSystem.readAsStringAsync(uri, {
+    base64 = await FileSystem.readAsStringAsync(processedUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
   } catch (readError) {

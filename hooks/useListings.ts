@@ -87,7 +87,7 @@ export function useDeleteListing() {
     }) => {
       const { error } = await supabase
         .from('listings')
-        .update({ status: 'inactive' })
+        .update({ status: 'deleted' })
         .eq('id', id);
 
       if (error) throw error;

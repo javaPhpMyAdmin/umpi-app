@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -17,10 +18,12 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 const SIMULATED_DELAY_MS = 0;
 
 export default function ListingDetailScreen() {
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
+  const imageHeight = Math.min(screenHeight * 0.35, 340);
   const [listing, setListing] = useState<Listing | null>(null);
   const [seller, setSeller] = useState<Profile | null>(null);
   const [hasConversation, setHasConversation] = useState<string | null>(null);
@@ -191,10 +194,28 @@ export default function ListingDetailScreen() {
 
   const allImages = (listing.images?.length ? listing.images : [listing.category?.image_url || '']).filter(Boolean);
 
+  if (listing.status !== 'active') {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight }]}>
+          <Image source={{ uri: allImages[0] || '' }} style={[styles.image, { width: screenWidth, height: imageHeight }]} resizeMode="cover" />
+          <View style={styles.imageOverlay} />
+          <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
+            <ArrowLeft size={22} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.unavailable}>
+          <Text style={styles.unavailableTitle}>Aviso no disponible</Text>
+          <Text style={styles.unavailableText}>Esta publicacion ya no esta activa</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={[styles.imageWrap, { width: screenWidth }]}>
+        <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight }]}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -206,10 +227,10 @@ export default function ListingDetailScreen() {
             scrollEventThrottle={16}
           >
             {allImages.map((uri, i) => (
-              <Image key={`${uri}-${i}`} source={{ uri }} style={[styles.image, { width: screenWidth }]} resizeMode="cover" />
+              <Image key={`${uri}-${i}`} source={{ uri }} style={[styles.image, { width: screenWidth, height: imageHeight }]} resizeMode="cover" />
             ))}
           </ScrollView>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
             <ArrowLeft size={22} color={Colors.white} />
           </TouchableOpacity>
           {allImages.length > 1 && (
@@ -330,7 +351,7 @@ export default function ListingDetailScreen() {
         destructiveSecondary
       />
 
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
         {isOwner ? (
           <TouchableOpacity style={styles.ownerMenuBtn} onPress={() => setShowActionSheet(true)}>
             <MoreHorizontal size={20} color={Colors.white} />
@@ -349,9 +370,10 @@ export default function ListingDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  imageWrap: { position: 'relative', height: 280 },
+  imageWrap: { position: 'relative' },
   image: { width: '100%', height: '100%' },
-  backBtn: { position: 'absolute', top: 48, left: 16, backgroundColor: 'rgba(0,0,0,0.4)', padding: 10, borderRadius: 12 },
+  imageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
+  backBtn: { position: 'absolute', left: 16, backgroundColor: 'rgba(0,0,0,0.4)', padding: 10, borderRadius: 12 },
   dots: { position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
   dotActive: { width: 22, backgroundColor: Colors.white },
@@ -382,4 +404,7 @@ const styles = StyleSheet.create({
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, padding: 16, borderRadius: 14 },
   contactBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
   ownerMenuBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.textSecondary, padding: 16, borderRadius: 14 },
+  unavailable: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 8 },
+  unavailableTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, textAlign: 'center' },
+  unavailableText: { fontSize: 14, color: Colors.textMuted, textAlign: 'center' },
 });

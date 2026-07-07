@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Animated, Image, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
@@ -7,9 +7,11 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useMessages, useSendMessage } from '@/hooks/useMessages';
+import { useListing } from '@/hooks/useListing';
 import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types';
 import { showError } from '@/lib/toast';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -20,19 +22,47 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
   const [creating, setCreating] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Android: manejar el teclado manualmente (KeyboardAvoidingView es buggy al cerrar)
+  useEffect(() => {
+    if (Platform.OS === 'ios') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   const isNew = id === 'new';
   const conversationId = isNew ? undefined : (id as string);
   const { data: messages, isLoading } = useMessages(conversationId);
   const sendMutation = useSendMessage();
 
-  // Nombre del otro usuario
-  const headerName = useMemo(() => {
-    if (isNew) return decodeURIComponent((otherNameParam as string) || 'Usuario');
-    if (!messages || !user) return '';
-    const other = messages.find(m => m.sender_id !== user.id)?.sender;
-    return other?.full_name || 'Chat';
-  }, [isNew, otherNameParam, messages, user]);
+  // Obtener el listing_id para conversaciones existentes
+  const [convListingId, setConvListingId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!conversationId) return;
+    supabase
+      .from('conversations')
+      .select('listing_id')
+      .eq('id', conversationId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.listing_id) setConvListingId(data.listing_id);
+      });
+  }, [conversationId]);
+
+  const activeListingId = isNew ? (listingId as string) : convListingId;
+  const { data: listing } = useListing(activeListingId);
+
+  // Nombre y avatar del otro usuario
+  const otherProfile = useMemo(() => {
+    if (isNew) return null;
+    if (!messages || !user) return null;
+    return messages.find(m => m.sender_id !== user.id)?.sender || null;
+  }, [isNew, messages, user]);
+
+  const headerName = otherProfile?.full_name
+    || (isNew ? decodeURIComponent((otherNameParam as string) || 'Usuario') : 'Chat');
 
   // Realtime subscription — solo para conversaciones existentes
   useEffect(() => {
@@ -110,17 +140,8 @@ export default function ChatScreen() {
     }
   };
 
-  return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isNew ? headerName : (isLoading && !headerName ? 'Cargando usuario...' : headerName)}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
+  const messagesContent = (
+    <>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.messages} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
         {isNew || !conversationId ? (
           <View style={styles.empty}>
@@ -151,13 +172,60 @@ export default function ChatScreen() {
           })
         )}
       </ScrollView>
-      <View style={styles.inputBar}>
+      <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
         <TextInput style={styles.input} placeholder="Escribe un mensaje..." placeholderTextColor={Colors.textMuted} value={input} onChangeText={setInput} multiline />
         <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
-          <Send size={20} color={Colors.white} />
+          <Send size={22} color={Colors.white} />
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Header fuera del KeyboardAvoidingView — siempre estático */}
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ArrowLeft size={24} color={Colors.white} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <UserAvatar url={otherProfile?.avatar_url} name={headerName} size={32} />
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {isNew ? headerName : (isLoading && !headerName ? 'Cargando usuario...' : headerName)}
+          </Text>
+        </View>
+        <View style={{ width: 24 }} />
+      </View>
+
+      {listing && (
+        <View style={styles.listingHeader}>
+          <Image source={{ uri: listing.images?.[0] || '' }} style={styles.listingImage} />
+          <View style={styles.listingInfo}>
+            <Text style={styles.listingTitle} numberOfLines={1}>{listing.title}</Text>
+            <Text style={styles.listingPrice}>
+              {listing.price ? `$${listing.price.toLocaleString('es-AR')}` : 'Consultar'}
+            </Text>
+          </View>
+          {listing.status !== 'active' && (
+            <View style={styles.deletedBadge}>
+              <Text style={styles.deletedBadgeText}>Eliminado</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Area de mensajes + input — plataforma-especifico para el teclado */}
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView style={styles.keyboardArea} behavior="padding" keyboardVerticalOffset={0}>
+          {messagesContent}
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={styles.keyboardArea}>
+          {messagesContent}
+          <View style={{ height: keyboardHeight }} />
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -188,8 +256,17 @@ function SkeletonBubble({ align }: { align: 'left' | 'right' }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  keyboardArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.white },
+  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.white, flexShrink: 1 },
+  listingHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  listingImage: { width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.borderLight },
+  listingInfo: { flex: 1 },
+  listingTitle: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  listingPrice: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 1 },
+  deletedBadge: { backgroundColor: Colors.error + '15', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  deletedBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.error },
   messages: { padding: 16, gap: 8, flexGrow: 1 },
   bubble: { maxWidth: '50%', padding: 12, borderRadius: 16 },
   bubbleLeft: { backgroundColor: Colors.border, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
@@ -202,7 +279,7 @@ const styles = StyleSheet.create({
   skeletonRight: { backgroundColor: Colors.border, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 40 },
   emptyText: { fontSize: 14, color: Colors.textMuted },
-  inputBar: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border },
-  input: { flex: 1, backgroundColor: Colors.borderLight, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: Colors.text, maxHeight: 100 },
-  sendBtn: { backgroundColor: Colors.primary, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border },
+  input: { flex: 1, backgroundColor: Colors.borderLight, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: Colors.text, maxHeight: 120, lineHeight: 20 },
+  sendBtn: { backgroundColor: Colors.primary, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 });

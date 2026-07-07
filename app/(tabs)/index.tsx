@@ -1,19 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
-  Search,
   Star,
-  TrendingUp,
   Clock,
   ChevronRight,
 } from 'lucide-react-native';
@@ -27,49 +24,26 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { data: listings = [], isLoading: loadingListings } = useListings();
   const { data: categories = [] } = useCategories();
 
   const featured = useMemo(
-    () =>
-      [...listings]
-        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-        .slice(0, 6),
-    [listings]
+    () => listings.filter((l) => l.is_featured).slice(0, 6),
+    [listings],
   );
-  const recent = useMemo(() => listings.slice(0, 8), [listings]);
-
-  const filteredFeatured = useMemo(() => {
-    if (!selectedCategory || selectedCategory === 'todos') return featured;
-    return [...listings]
-      .filter(
-        (l) =>
-          l.category?.slug === selectedCategory ||
-          l.category?.name === selectedCategory
-      )
-      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-      .slice(0, 6);
-  }, [listings, selectedCategory, featured]);
-
-  const filteredRecent = useMemo(() => {
-    if (!selectedCategory || selectedCategory === 'todos') return recent;
+  const recent = useMemo(() => {
+    const fifteenDaysAgo = new Date();
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
     return listings
-      .filter(
-        (l) =>
-          l.category?.slug === selectedCategory ||
-          l.category?.name === selectedCategory
-      )
+      .filter((l) => new Date(l.created_at) >= fifteenDaysAgo)
       .slice(0, 8);
-  }, [listings, selectedCategory, recent]);
+  }, [listings]);
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      router.push({ pathname: '/explore', params: { q: searchQuery } });
-    }
-  };
+  const quickCategories = useMemo(
+    () => categories.filter(cat => cat.slug !== 'todos' && cat.slug !== 'destacados'),
+    [categories]
+  );
 
   return (
     <View style={styles.container}>
@@ -77,17 +51,17 @@ export default function HomeScreen() {
         <Text style={styles.logo}>Umpi</Text>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Search size={20} color={Colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar servicios, autos, propiedades..."
-          placeholderTextColor={Colors.textMuted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
+      <View style={styles.quickSearch}>
+        <Text style={styles.quickSearchLabel}>¿Qué estás buscando?</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {quickCategories.map(cat => (
+            <CategoryBadge
+              key={cat.id}
+              category={cat}
+              onPress={() => router.push({ pathname: '/explore', params: { category: cat.slug } })}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       {loadingListings && listings.length === 0 ? (
@@ -95,20 +69,14 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.searchContainer}>
-            <SkeletonCard variant="compact" style={{ width: '100%', height: 44, borderRadius: 14 }} />
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoriesScroll}
-          >
-            <View style={styles.categoriesRow}>
-              {[1, 2, 3, 4, 5].map(i => (
-                <View key={i} style={{ width: 80, height: 32, backgroundColor: Colors.border, borderRadius: 16 }} />
+          <View style={styles.quickSearchSkeleton}>
+            <View style={{ width: 140, height: 14, backgroundColor: Colors.border, borderRadius: 4, marginBottom: 10 }} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {[1, 2, 3, 4].map(i => (
+                <View key={i} style={{ width: 100, height: 32, backgroundColor: Colors.border, borderRadius: 16, marginRight: 8 }} />
               ))}
-            </View>
-          </ScrollView>
+            </ScrollView>
+          </View>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={{ width: 140, height: 18, backgroundColor: Colors.border, borderRadius: 4 }} />
@@ -133,68 +101,51 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesScroll}
-        >
-          <View style={styles.categoriesRow}>
-            {categories.map((cat) => (
-              <CategoryBadge
-                key={cat.id}
-                category={cat}
-                isActive={selectedCategory === cat.slug}
-                onPress={() =>
-                  setSelectedCategory(
-                    selectedCategory === cat.slug ? null : cat.slug
-                  )
-                }
+        {featured.length === 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Star size={20} color={Colors.gold} />
+                <Text style={styles.sectionTitle}>Suscripciones destacadas</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.planBanner} onPress={() => router.push('/plans')}>
+              <Image
+                source={{ uri: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg' }}
+                style={styles.planBannerImage}
               />
-            ))}
-          </View>
-        </ScrollView>
-
-        {selectedCategory && (
-          <View style={styles.filterInfo}>
-            <Text style={styles.filterText}>
-              Filtrando por:{' '}
-              {categories.find((c) => c.slug === selectedCategory)?.name}
-            </Text>
-            <TouchableOpacity onPress={() => setSelectedCategory(null)}>
-              <Text style={styles.filterClear}>Limpiar</Text>
+              <View style={styles.planBannerOverlay}>
+                <Text style={styles.planBannerTitle}>Llega a mas personas</Text>
+                <Text style={styles.planBannerSubtitle}>Planes desde $7.000 ARS/mes</Text>
+                <View style={styles.planBannerButton}>
+                  <Text style={styles.planBannerButtonText}>Ver planes</Text>
+                  <ChevronRight size={16} color={Colors.primary} />
+                </View>
+              </View>
             </TouchableOpacity>
           </View>
         )}
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <TrendingUp size={20} color={Colors.primary} />
-              <Text style={styles.sectionTitle}>Mas populares</Text>
+        {featured.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Star size={20} color={Colors.primary} />
+                <Text style={styles.sectionTitle}>Destacados</Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push({ pathname: '/explore' })}>
+                <Text style={styles.sectionLink}>Ver todos</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() =>
-                router.push({
-                  pathname: '/explore',
-                  params: { featured: 'true' },
-                })
-              }
-            >
-              <Text style={styles.sectionLink}>Ver todos</Text>
-            </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.featuredScroll}>
+              <View style={styles.featuredRow}>
+                {featured.map((item) => (
+                  <ListingCard key={item.id} listing={item} variant="featured" />
+                ))}
+              </View>
+            </ScrollView>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.featuredScroll}
-          >
-            <View style={styles.featuredRow}>
-              {filteredFeatured.map((item) => (
-                <ListingCard key={item.id} listing={item} variant="featured" />
-              ))}
-            </View>
-          </ScrollView>
-        </View>
+        )}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -204,41 +155,36 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.recentGrid}>
-            {filteredRecent.map((item) => (
+            {recent.map((item) => (
               <ListingCard key={item.id} listing={item} variant="compact" />
             ))}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Star size={20} color={Colors.gold} />
-              <Text style={styles.sectionTitle}>Suscripciones destacadas</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.planBanner}
-            onPress={() => router.push('/plans')}
-          >
-            <Image
-              source={{
-                uri: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg',
-              }}
-              style={styles.planBannerImage}
-            />
-            <View style={styles.planBannerOverlay}>
-              <Text style={styles.planBannerTitle}>Llega a mas personas</Text>
-              <Text style={styles.planBannerSubtitle}>
-                Planes desde $7.000 ARS/mes
-              </Text>
-              <View style={styles.planBannerButton}>
-                <Text style={styles.planBannerButtonText}>Ver planes</Text>
-                <ChevronRight size={16} color={Colors.primary} />
+        {featured.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Star size={20} color={Colors.gold} />
+                <Text style={styles.sectionTitle}>Suscripciones destacadas</Text>
               </View>
             </View>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity style={styles.planBanner} onPress={() => router.push('/plans')}>
+              <Image
+                source={{ uri: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg' }}
+                style={styles.planBannerImage}
+              />
+              <View style={styles.planBannerOverlay}>
+                <Text style={styles.planBannerTitle}>Llega a mas personas</Text>
+                <Text style={styles.planBannerSubtitle}>Planes desde $7.000 ARS/mes</Text>
+                <View style={styles.planBannerButton}>
+                  <Text style={styles.planBannerButtonText}>Ver planes</Text>
+                  <ChevronRight size={16} color={Colors.primary} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
       )}
     </View>
@@ -266,59 +212,22 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    marginHorizontal: 16,
+  quickSearch: {
+    paddingHorizontal: 16,
     marginTop: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 6,
   },
-  searchInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 14,
-    color: Colors.text,
-    paddingVertical: 0,
+  quickSearchLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 10,
+  },
+  quickSearchSkeleton: {
+    paddingHorizontal: 16,
+    marginTop: 16,
   },
   scrollContent: {
     paddingBottom: 24,
-  },
-  categoriesScroll: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-  },
-  categoriesRow: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingRight: 16,
-  },
-  filterInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 10,
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-  },
-  filterText: {
-    fontSize: 13,
-    color: Colors.text,
-    fontWeight: '500',
-  },
-  filterClear: {
-    fontSize: 13,
-    color: Colors.primary,
-    fontWeight: '600',
   },
   section: {
     marginTop: 24,

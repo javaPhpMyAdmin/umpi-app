@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -51,6 +51,35 @@ export default function PublishScreen() {
   const [prefilled, setPrefilled] = useState(false);
 
   const editMutation = useEditListing();
+
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+  const LOCATIONS = useMemo(() => [
+    'Buenos Aires (CABA)',
+    'Buenos Aires (GBA)',
+    'Córdoba',
+    'Rosario',
+    'Mendoza',
+    'La Plata',
+    'Mar del Plata',
+    'Salta',
+    'Santa Fe',
+    'Corrientes',
+    'Neuquén',
+    'Posadas',
+    'San Miguel de Tucumán',
+    'San Juan',
+    'San Luis',
+    'Santiago del Estero',
+    'Formosa',
+    'La Rioja',
+    'Paraná',
+    'Resistencia',
+    'Río Gallegos',
+    'Ushuaia',
+    'Viedma',
+    'Otra',
+  ], []);
 
   const resetForm = useCallback(() => {
     setTitle('');
@@ -289,10 +318,12 @@ export default function PublishScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Ubicacion</Text>
-          <View style={styles.inputRow}>
-            <MapPin size={18} color={Colors.textMuted} />
-            <TextInput style={styles.input} placeholder="Ciudad, provincia..." placeholderTextColor={Colors.textMuted} value={location} onChangeText={setLocation} />
-          </View>
+          <TouchableOpacity style={styles.inputRow} onPress={() => setShowLocationPicker(true)} activeOpacity={0.7}>
+            <MapPin size={18} color={location ? Colors.primary : Colors.textMuted} />
+            <Text style={[styles.input, !location && styles.placeholder]}>
+              {location || 'Seleccionar ciudad...'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -325,6 +356,36 @@ export default function PublishScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={showLocationPicker} transparent animationType="slide" onRequestClose={() => setShowLocationPicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccionar ubicacion</Text>
+              <TouchableOpacity onPress={() => setShowLocationPicker(false)}>
+                <X size={20} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={LOCATIONS}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.locationItem, location === item && styles.locationItemActive]}
+                  onPress={() => {
+                    setLocation(item);
+                    setShowLocationPicker(false);
+                  }}
+                >
+                  <Text style={[styles.locationItemText, location === item && styles.locationItemTextActive]}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -358,4 +419,13 @@ const styles = StyleSheet.create({
   imageRemoveBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   addImageBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
   addImageText: { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
+  placeholder: { color: Colors.textMuted },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
+  locationItem: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  locationItemActive: { backgroundColor: Colors.borderLight },
+  locationItemText: { fontSize: 15, color: Colors.text },
+  locationItemTextActive: { color: Colors.primary, fontWeight: '600' },
 });
