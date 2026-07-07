@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -10,6 +11,7 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 import { supabase } from '@/lib/supabase';
 
 export default function ExploreScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const [query, setQuery] = useState((params.q as string) || '');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Explorar</Text>
         <Text style={styles.headerSubtitle}>Descubre miles de avisos</Text>
       </View>

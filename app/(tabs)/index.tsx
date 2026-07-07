@@ -8,6 +8,7 @@ import {
   TextInput,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Search,
@@ -24,6 +25,7 @@ import { CategoryBadge } from '@/components/CategoryBadge';
 import { SkeletonCard } from '@/components/SkeletonCard';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -71,7 +73,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.logo}>Umpi</Text>
       </View>
 
@@ -94,7 +96,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
         >
           <View style={styles.searchContainer}>
-            <SkeletonCard variant="compact" style={{ width: '100%', height: 44, borderRadius: 14, marginTop: -18 }} />
+            <SkeletonCard variant="compact" style={{ width: '100%', height: 44, borderRadius: 14 }} />
           </View>
           <ScrollView
             horizontal
@@ -269,7 +271,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.surface,
     marginHorizontal: 16,
-    marginTop: -18,
+    marginTop: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,

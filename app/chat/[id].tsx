@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -11,6 +12,7 @@ import { Message } from '@/types';
 import { showError } from '@/lib/toast';
 
 export default function ChatScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id, listingId, otherUserId, otherName: otherNameParam } = useLocalSearchParams();
   const { user } = useAuth();
@@ -110,7 +112,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <ArrowLeft size={24} color={Colors.white} />
         </TouchableOpacity>

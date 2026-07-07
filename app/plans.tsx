@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Star, Check, Crown, Zap } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan } from '@/types';
 export default function PlansScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
 
@@ -31,7 +33,7 @@ export default function PlansScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>

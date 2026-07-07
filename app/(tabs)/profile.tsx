@@ -1,4 +1,5 @@
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Star, Settings, Crown, LogOut, User, Plus, ChevronRight, Edit3, Trash2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -12,6 +13,7 @@ import { showError, showSuccess } from '@/lib/toast';
 import { useState } from 'react';
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, profile, signOut } = useAuth();
   const { data: myListings = [], isLoading } = useMyListings(user?.id);
@@ -73,7 +75,7 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <Text style={styles.headerTitle}>Perfil</Text>
         </View>
         <View style={styles.emptyAuth}>
@@ -89,7 +91,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Perfil</Text>
       </View>
 

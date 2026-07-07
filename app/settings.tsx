@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Save, Shield } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -8,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { showError, showSuccess } from '@/lib/toast';
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || '');
@@ -32,7 +34,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <ArrowLeft size={24} color={Colors.text} />
         </TouchableOpacity>

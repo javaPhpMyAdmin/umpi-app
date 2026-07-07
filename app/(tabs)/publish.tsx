@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, X, MapPin, DollarSign, Tag, FileText, Plus } from 'lucide-react-native';
@@ -15,6 +16,7 @@ import { useListing } from '@/hooks/useListing';
 import { useEditListing } from '@/hooks/useListings';
 
 export default function PublishScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const queryClient = useQueryClient();
@@ -203,13 +205,11 @@ export default function PublishScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <ArrowLeft size={24} color={Colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Publicar</Text>
+        <View style={[styles.emptyHeader, { paddingTop: insets.top + 12 }]}>
+          <Text style={styles.emptyHeaderTitle}>Publicar</Text>
         </View>
         <View style={styles.emptyAuth}>
+          <Plus size={48} color={Colors.textMuted} />
           <Text style={styles.emptyAuthTitle}>Inicia sesion para publicar</Text>
           <Text style={styles.emptyAuthSubtitle}>Publica tus avisos gratuitamente. Solo necesitas una cuenta.</Text>
           <TouchableOpacity style={styles.emptyAuthBtn} onPress={() => router.push('/login')}>
@@ -222,7 +222,7 @@ export default function PublishScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => {
           if (editMode) {
             resetForm();
@@ -333,8 +333,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
+  emptyHeader: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  emptyHeaderTitle: { fontSize: 26, fontWeight: '800', color: Colors.white },
   emptyAuth: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 },
-  emptyAuthTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, textAlign: 'center' },
+  emptyAuthTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, textAlign: 'center' },
   emptyAuthSubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
   emptyAuthBtn: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
   emptyAuthBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },

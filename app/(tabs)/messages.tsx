@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MessageCircle, ArrowRight, Trash2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -8,6 +9,7 @@ import { useConversations, useArchiveConversation } from '@/hooks/useConversatio
 import { SkeletonCard } from '@/components/SkeletonCard';
 
 export default function MessagesScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
   const { data: conversations, isLoading, refetch } = useConversations(user?.id);
@@ -34,7 +36,7 @@ export default function MessagesScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <Text style={styles.headerTitle}>Mensajes</Text>
         </View>
         <View style={styles.emptyAuth}>
@@ -50,7 +52,7 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Mensajes</Text>
       </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
