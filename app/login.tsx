@@ -13,38 +13,41 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const navigatedRef = useRef(false);
 
+  // Si ya hay sesión, navegar al toque (una sola vez)
   useEffect(() => {
-    if (user) router.replace('/(tabs)');
-  }, [user]);
+    if (user && !navigatedRef.current) {
+      navigatedRef.current = true;
+      router.replace('/(tabs)');
+    }
+  }, [user, router]);
 
-  // Mientras Google está autenticando o hay sesión lista, mostrar skeleton
-  if (googleLoading || user) {
+  // Mientras está autenticando o hay sesión lista, mostrar skeleton
+  if (loading || user) {
     return <LoginSkeleton />;
   }
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) return showError('Error', 'Completa todos los campos');
-    setEmailLoading(true);
+    setLoading(true);
     const { error } = await signIn(email, password);
-    setEmailLoading(false);
-    if (error) showError('Error', error.message);
-    else router.replace('/(tabs)');
+    if (error) {
+      setLoading(false);
+      showError('Error', error.message);
+    }
+    // Si no hay error, el useEffect([user]) se encarga del redirect
   };
 
   const handleGoogle = async () => {
-    setGoogleLoading(true);
+    setLoading(true);
     const { error } = await signInWithGoogle();
     if (error) {
-      setGoogleLoading(false);
+      setLoading(false);
       showError('Error', error.message);
-    } else {
-      // Pequeña pausa para que el spinner se vea y la transición sea natural
-      await new Promise(r => setTimeout(r, 2500));
-      router.replace('/(tabs)');
     }
+    // Si no hay error, el useEffect([user]) se encarga del redirect
   };
 
   return (
@@ -78,8 +81,8 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={[styles.btn, emailLoading && styles.btnDisabled]} onPress={handleLogin} disabled={emailLoading || googleLoading}>
-        <Text style={styles.btnText}>{emailLoading ? 'Ingresando...' : 'Ingresar'}</Text>
+      <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleLogin} disabled={loading}>
+        <Text style={styles.btnText}>{loading ? 'Ingresando...' : 'Ingresar'}</Text>
       </TouchableOpacity>
 
       <View style={styles.divider}>
@@ -88,7 +91,7 @@ export default function LoginScreen() {
         <View style={styles.dividerLine} />
       </View>
 
-      <TouchableOpacity style={styles.googleBtn} onPress={handleGoogle} disabled={emailLoading || googleLoading}>
+      <TouchableOpacity style={styles.googleBtn} onPress={handleGoogle} disabled={loading}>
         <GoogleIcon size={48} />
         <Text style={styles.googleBtnText}>Continuar con Google</Text>
       </TouchableOpacity>

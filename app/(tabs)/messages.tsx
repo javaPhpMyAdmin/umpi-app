@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, Pressable, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MessageCircle, ArrowRight, Trash2 } from 'lucide-react-native';
@@ -16,6 +16,7 @@ export default function MessagesScreen() {
   const { data: conversations, isLoading, refetch } = useConversations(user?.id);
   const archiveMutation = useArchiveConversation();
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const confirmArchive = () => {
     if (!archiveTarget || !user) return;
@@ -24,6 +25,12 @@ export default function MessagesScreen() {
       userId: user.id,
     });
     setArchiveTarget(null);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
   };
 
   // Refrescar en background cada vez que se enfoca el tab,
@@ -56,7 +63,8 @@ export default function MessagesScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Mensajes</Text>
       </View>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}>
         {isLoading ? (
           [1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} variant="conversation" />)
         ) : !conversations || conversations.length === 0 ? (
@@ -69,7 +77,14 @@ export default function MessagesScreen() {
           <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}`)} onLongPress={() => setArchiveTarget({ id: conv.id, name: conv.other_user?.full_name || 'Usuario' })} activeOpacity={0.7}>
             <UserAvatar url={conv.other_user?.avatar_url} name={conv.other_user?.full_name} size={44} />
             <View style={styles.convInfo}>
-              <Text style={styles.convName}>{conv.other_user?.full_name || 'Usuario'}</Text>
+              <View style={styles.convTop}>
+                <Text style={styles.convName}>{conv.other_user?.full_name || 'Usuario'}</Text>
+                {(conv.unread_count ?? 0) > 0 && (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>{conv.unread_count}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.convListing} numberOfLines={1}>{conv.listing?.title || 'Sin titulo'}</Text>
               {conv.last_message?.content && (
                 <Text style={styles.lastMessage} numberOfLines={1}>
@@ -126,9 +141,12 @@ const styles = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 16, fontWeight: '700', color: Colors.white },
   convInfo: { flex: 1 },
-  convName: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  convTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  convName: { fontSize: 15, fontWeight: '700', color: Colors.text, flexShrink: 1 },
   convListing: { fontSize: 13, fontWeight: '600', color: Colors.primary, marginTop: 2 },
   lastMessage: { fontSize: 13, color: Colors.textMuted },
+  unreadBadge: { backgroundColor: Colors.primary, borderRadius: 10, minWidth: 20, height: 20, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  unreadText: { fontSize: 11, fontWeight: '800', color: Colors.white },
   // Modal
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   modalContent: { backgroundColor: Colors.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center', shadowColor: Colors.black, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12 },

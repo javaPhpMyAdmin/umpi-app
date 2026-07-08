@@ -3,9 +3,13 @@ import { StyleSheet, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Search, PlusCircle, MessageCircle, User } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { data: unreadCount = 0 } = useUnreadCount(user?.id);
   const bottomInset = Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 4);
 
   return (
@@ -51,6 +55,8 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Mensajes',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: Colors.primary, fontSize: 11, fontWeight: '800', minWidth: 18, height: 18, lineHeight: 18 },
           tabBarIcon: ({ size, color }) => <MessageCircle size={size} color={color} strokeWidth={2} />,
         }}
       />

@@ -58,6 +58,8 @@ export interface Conversation {
   listing_id: string | null;
   user1_id: string;
   user2_id: string;
+  user1_last_read_at: string;
+  user2_last_read_at: string;
   last_message_at: string;
   created_at: string;
   listing?: Listing;

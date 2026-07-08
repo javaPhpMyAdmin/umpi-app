@@ -36,23 +36,44 @@ export function useConversations(userId: string | undefined) {
         } as unknown as Conversation;
       });
 
-      // Último mensaje de cada conversación
+      // Último mensaje + no leídos de cada conversación
       const ids = convs.map((c) => c.id);
-      if (ids.length > 0) {
-        const lastMessages = await Promise.all(
+      if (ids.length > 0 && userId) {
+        const enriched = await Promise.all(
           ids.map(async (convId) => {
-            const { data } = await supabase
-              .from('messages')
-              .select('*')
-              .eq('conversation_id', convId)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            return data ? (data as Message) : undefined;
+            const conv = convs.find((c) => c.id === convId)!;
+            const lastReadAt =
+              conv.user1_id === userId
+                ? conv.user1_last_read_at
+                : conv.user2_last_read_at;
+
+            const [msgResult, unreadResult] = await Promise.all([
+              supabase
+                .from('messages')
+                .select('*')
+                .eq('conversation_id', convId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle(),
+              supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('conversation_id', convId)
+                .neq('sender_id', userId)
+                .gt('created_at', lastReadAt),
+            ]);
+
+            return {
+              last_message: msgResult.data
+                ? (msgResult.data as Message)
+                : undefined,
+              unread_count: unreadResult.count ?? 0,
+            };
           }),
         );
         convs.forEach((c, i) => {
-          c.last_message = lastMessages[i];
+          c.last_message = enriched[i].last_message;
+          c.unread_count = enriched[i].unread_count;
         });
       }
 
@@ -113,6 +134,7 @@ export function useArchiveConversation() {
       queryClient.invalidateQueries({
         queryKey: ['conversations', vars.userId],
       });
+      queryClient.invalidateQueries({ queryKey: ['unreadCount'] });
     },
   });
 }
