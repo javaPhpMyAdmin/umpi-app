@@ -27,7 +27,6 @@ export default function ActionSheet({ visible, onClose, options }: ActionSheetPr
         <Pressable style={styles.overlay} onPress={onClose} />
         <View style={styles.sheetWrap}>
           <Pressable style={styles.sheet} onPress={() => {}}>
-            <View style={styles.handleBar} />
             {options.map((option, index) => (
               <TouchableOpacity
                 key={index}
@@ -59,29 +58,17 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   sheetWrap: {
+    backgroundColor: 'rgba(0,0,0,0.4)',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
   },
   sheet: {
-    backgroundColor: '#FCFCFD',
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
     paddingBottom: 40,
     paddingHorizontal: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 40,
-    elevation: 24,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
-    marginBottom: 12,
   },
   option: {
     flexDirection: 'row',
