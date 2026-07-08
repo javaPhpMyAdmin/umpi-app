@@ -29,6 +29,7 @@ export default function BottomSheetDialog({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
+          <View style={styles.handleBar} />
           {icon && <View style={styles.iconWrap}>{icon}</View>}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
@@ -58,13 +59,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#FCFCFD',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderTopWidth: 2,
-    borderTopColor: 'rgba(0,0,0,0.06)',
     paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingTop: 10,
     paddingBottom: 40,
     alignItems: 'center',
     shadowColor: '#000',
@@ -72,6 +71,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 40,
     elevation: 24,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    marginBottom: 16,
   },
   iconWrap: {
     width: 56,
