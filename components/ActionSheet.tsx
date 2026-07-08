@@ -1,5 +1,6 @@
-import { ReactNode } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { useState, useEffect, useRef, ReactNode } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Pressable, Animated, BackHandler } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 
 interface ActionSheetOption {
@@ -16,58 +17,88 @@ interface ActionSheetProps {
 }
 
 export default function ActionSheet({ visible, onClose, options }: ActionSheetProps) {
+  const insets = useSafeAreaInsets();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => {
+        setMounted(false);
+      });
+    }
+  }, [visible, fadeAnim]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const handler = () => { onClose(); return true; };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handler);
+    return () => subscription.remove();
+  }, [visible, onClose]);
+
+  if (!mounted) return null;
+
   const handleOptionPress = (option: ActionSheetOption) => {
     option.action();
     onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.container}>
-        <Pressable style={styles.overlay} onPress={onClose} />
-        <View style={styles.sheetWrap}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            {options.map((option, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.option, index < options.length - 1 && styles.optionBorder]}
-                onPress={() => handleOptionPress(option)}
-              >
-                {option.icon && <View style={styles.optionIcon}>{option.icon}</View>}
-                <Text style={[styles.optionLabel, option.destructive && styles.optionDestructive]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
+    <Animated.View style={[StyleSheet.absoluteFill, styles.wrapper, { opacity: fadeAnim }]}>
+      <Pressable style={styles.overlay} onPress={onClose} />
+      <View style={styles.sheetWrap}>
+        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom }]} onPress={() => {}}>
+          {options.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[styles.option, index < options.length - 1 && styles.optionBorder]}
+              onPress={() => handleOptionPress(option)}
+            >
+              {option.icon && <View style={styles.optionIcon}>{option.icon}</View>}
+              <Text style={[styles.optionLabel, option.destructive && styles.optionDestructive]}>
+                {option.label}
+              </Text>
             </TouchableOpacity>
-          </Pressable>
-        </View>
+          ))}
+          <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+            <Text style={styles.cancelBtnText}>Cancelar</Text>
+          </TouchableOpacity>
+        </Pressable>
       </View>
-    </Modal>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  wrapper: {
+    zIndex: 1000,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheetWrap: {
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   sheet: {
-    backgroundColor: Colors.surface,
+    backgroundColor: '#FFECE0',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
-    paddingBottom: 40,
     paddingHorizontal: 16,
   },
   option: {
@@ -100,7 +131,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
-    backgroundColor: Colors.borderLight,
+    backgroundColor: '#FFD4B5',
   },
   cancelBtnText: {
     fontSize: 16,

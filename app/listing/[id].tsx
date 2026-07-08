@@ -213,7 +213,7 @@ export default function ListingDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight }]}>
           <ScrollView

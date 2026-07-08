@@ -1,5 +1,6 @@
-import { ReactNode } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { useState, useEffect, useRef, ReactNode } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Pressable, Animated, BackHandler } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 
 interface Props {
@@ -25,11 +26,42 @@ export default function BottomSheetDialog({
   secondaryLabel,
   destructiveSecondary,
 }: Props) {
+  const insets = useSafeAreaInsets();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => {
+        setMounted(false);
+      });
+    }
+  }, [visible, fadeAnim]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const handler = () => { onClose(); return true; };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handler);
+    return () => subscription.remove();
+  }, [visible, onClose]);
+
+  if (!mounted) return null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Animated.View style={[StyleSheet.absoluteFill, styles.wrapper, { opacity: fadeAnim }]}>
       <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.handleBar} />
+        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom }]} onPress={() => {}}>
           {icon && <View style={styles.iconWrap}>{icon}</View>}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
@@ -48,36 +80,25 @@ export default function BottomSheetDialog({
           )}
         </Pressable>
       </Pressable>
-    </Modal>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    zIndex: 1000,
+  },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF6F0',
+    backgroundColor: '#FFECE0',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 40,
+    paddingTop: 24,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 40,
-    elevation: 24,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.border,
-    marginBottom: 16,
   },
   iconWrap: {
     width: 56,
@@ -120,6 +141,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     width: '100%',
+    backgroundColor: '#FFE2D0',
   },
   secondaryBtnText: {
     color: Colors.textSecondary,

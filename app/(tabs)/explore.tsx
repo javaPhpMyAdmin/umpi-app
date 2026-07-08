@@ -75,8 +75,13 @@ export default function ExploreScreen() {
     [data],
   );
 
-  const renderItem = ({ item }: { item: Listing }) => (
-    <View style={styles.gridItem}>
+  const renderItem = ({ item, index }: { item: Listing; index: number }) => (
+    <View style={[
+      styles.gridItem,
+      index % 2 === 0
+        ? { paddingLeft: 16, paddingRight: 6 }
+        : { paddingLeft: 6, paddingRight: 16 },
+    ]}>
       <ListingCard listing={item} variant="compact" style={styles.cardFill} />
     </View>
   );
@@ -259,11 +264,11 @@ export default function ExploreScreen() {
   return (
     <View style={styles.container}>
       <FlatList
+        key={selectedCategory || 'all'}
         data={listings}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        columnWrapperStyle={styles.gridRow}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
         ListEmptyComponent={ListEmpty}
