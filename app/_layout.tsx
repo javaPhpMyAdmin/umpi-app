@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Toast from 'react-native-toast-message';
-import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SplashOverlay } from '@/components/SplashOverlay';
 import { toastConfig } from '@/lib/toast';
 
 const queryClient = new QueryClient({
@@ -17,7 +18,7 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  useFrameworkReady();
+  const [splashDone, setSplashDone] = useState(false);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -29,6 +30,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
         <Toast config={toastConfig} />
+        {!splashDone && <SplashOverlay onFinish={() => setSplashDone(true)} />}
       </AuthProvider>
     </QueryClientProvider>
   );

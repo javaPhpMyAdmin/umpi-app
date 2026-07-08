@@ -72,7 +72,7 @@ export default function ChatScreen() {
   }, [isNew, messages, user]);
 
   const headerName = otherProfile?.full_name
-    || (isNew ? decodeURIComponent((otherNameParam as string) || 'Usuario') : 'Chat');
+    || decodeURIComponent((otherNameParam as string) || 'Chat');
 
   // Marcar como leído al entrar a la conversación (una sola vez)
   useEffect(() => {
@@ -158,7 +158,7 @@ export default function ChatScreen() {
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conv.id);
 
-      router.replace(`/chat/${conv.id}`);
+      router.replace(`/chat/${conv.id}?otherName=${encodeURIComponent(otherNameParam as string || 'Usuario')}&otherUserId=${otherUserId}`);
     } else if (conversationId) {
       sendMutation.mutate({ conversationId, content, senderId: user.id });
     }
@@ -184,14 +184,16 @@ export default function ChatScreen() {
             <Text style={styles.emptyText}>Inicia la conversacion</Text>
           </View>
         ) : (
-          messages.map(msg => {
+          messages.map((msg, idx) => {
             const isMe = msg.sender_id === user?.id;
             return (
-              <View key={msg.id} style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
-                <Text style={[styles.bubbleText, isMe ? { color: Colors.white } : { color: Colors.text }]}>{msg.content}</Text>
-                <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: Colors.textMuted }]}>
-                  {new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
-                </Text>
+              <View key={msg.id} style={[styles.messageRow, isMe ? styles.messageRowRight : styles.messageRowLeft]}>
+                <View style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
+                  <Text style={[styles.bubbleText, isMe ? { color: Colors.white } : { color: Colors.text }]}>{msg.content}</Text>
+                  <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: Colors.textMuted }]}>
+                    {new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                  </Text>
+                </View>
               </View>
             );
           })
@@ -231,7 +233,7 @@ export default function ChatScreen() {
           </View>
         </View>
       ) : listing ? (
-        <View style={styles.listingHeader}>
+        <TouchableOpacity style={styles.listingHeader} onPress={() => router.push(`/listing/${listing.id}`)} activeOpacity={0.7}>
           <Image source={{ uri: listing.images?.[0] || '' }} style={styles.listingImage} />
           <View style={styles.listingInfo}>
             <Text style={styles.listingTitle} numberOfLines={1}>{listing.title}</Text>
@@ -244,7 +246,7 @@ export default function ChatScreen() {
               <Text style={styles.deletedBadgeText}>Eliminado</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
       ) : null}
 
       {/* Area de mensajes + input — plataforma-especifico para el teclado */}
@@ -304,10 +306,13 @@ const styles = StyleSheet.create({
   deletedBadge: { backgroundColor: Colors.error + '15', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   deletedBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.error },
   messages: { padding: 16, gap: 8, flexGrow: 1 },
-  bubble: { maxWidth: '50%', padding: 12, borderRadius: 16 },
-  bubbleLeft: { backgroundColor: Colors.border, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  bubbleRight: { backgroundColor: Colors.primary, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleText: { fontSize: 14, lineHeight: 20 },
+  messageRow: { flexDirection: 'row', gap: 6, alignItems: 'flex-end', maxWidth: '80%' },
+  messageRowLeft: { alignSelf: 'flex-start' },
+  messageRowRight: { alignSelf: 'flex-end' },
+  bubble: { maxWidth: '100%', padding: 12, borderRadius: 16 },
+  bubbleLeft: { backgroundColor: Colors.border, borderBottomLeftRadius: 4 },
+  bubbleRight: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
+  bubbleText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   bubbleTime: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
   skeletonContainer: { gap: 12, paddingTop: 8 },
   skeletonBubble: { width: '55%', height: 48, borderRadius: 16 },

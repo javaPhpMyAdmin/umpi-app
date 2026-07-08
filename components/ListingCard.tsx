@@ -49,12 +49,12 @@ export function ListingCard({ listing, variant = 'featured', style, onEdit, onDe
         <Text style={styles.price}>{formatPrice(listing.price)}</Text>
         <View style={styles.metaRow}>
           {listing.location && (
-            <View style={styles.metaItem}>
+            <View style={styles.metaLocItem}>
               <MapPin size={12} color={Colors.textMuted} />
-              <Text style={styles.metaText}>{listing.location}</Text>
+              <Text style={styles.metaText} numberOfLines={1}>{listing.location}</Text>
             </View>
           )}
-          <View style={styles.metaItem}>
+          <View style={styles.metaRatingItem}>
             <Star size={12} color={Colors.star} fill={Colors.star} />
             <Text style={styles.metaText}>{listing.rating}</Text>
           </View>
@@ -139,6 +139,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+  },
+  metaLocItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 1,
+  },
+  metaRatingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexShrink: 0,
   },
   metaText: {
     fontSize: 11,

@@ -77,7 +77,11 @@ export default function ProfileScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <Text style={styles.headerTitle}>Perfil</Text>
+          <View style={styles.headerRow}>
+            <User size={24} color={Colors.white} />
+            <Text style={styles.headerTitle}>Perfil</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>Todo sobre vos</Text>
         </View>
         <View style={styles.emptyAuth}>
           <User size={48} color={Colors.textMuted} />
@@ -93,7 +97,11 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>Perfil</Text>
+        <View style={styles.headerRow}>
+          <User size={24} color={Colors.white} />
+          <Text style={styles.headerTitle}>Perfil</Text>
+        </View>
+        <Text style={styles.headerSubtitle}>Todo sobre vos</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -212,8 +220,10 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  header: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 26, fontWeight: '800', color: Colors.white },
+  headerSubtitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   scroll: { padding: 16, paddingBottom: 40 },
   profileCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Colors.surface, padding: 16, borderRadius: 16, marginTop: 8 },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },

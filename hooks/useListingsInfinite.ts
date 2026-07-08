@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Listing } from '@/types';
 
@@ -13,6 +13,7 @@ const PAGE_SIZE = 20;
 
 export function useListingsInfinite(filters: ExploreFilters) {
   return useInfiniteQuery({
+    placeholderData: keepPreviousData,
     queryKey: ['listings', 'explore', filters],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {

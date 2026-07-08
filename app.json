@@ -16,6 +16,10 @@
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
+    "splash": {
+      "backgroundColor": "#FF6B35",
+      "resizeMode": "contain"
+    },
     "plugins": ["expo-router", "expo-font", "expo-web-browser"],
     "experiments": {
       "typedRoutes": true

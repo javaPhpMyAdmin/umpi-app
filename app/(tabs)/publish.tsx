@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, FlatList } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, FlatList, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, X, MapPin, DollarSign, Tag, FileText, Plus } from 'lucide-react-native';
+import { ArrowLeft, X, MapPin, DollarSign, Tag, FileText, Plus, Sparkles } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -49,6 +50,7 @@ export default function PublishScreen() {
   const [initialImages, setInitialImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
+  const locationDetected = useRef(false);
 
   const editMutation = useEditListing();
 
@@ -91,14 +93,17 @@ export default function PublishScreen() {
     setImages([]);
     setInitialImages([]);
     setPrefilled(false);
+    locationDetected.current = false;
   }, []);
 
-  // Detect edit param disappearing — reset form to clean state
-  useEffect(() => {
-    if (!edit) {
-      resetForm();
-    }
-  }, [edit, resetForm]);
+  // Reset form al enfocar la pantalla (viniendo de otra tab), solo en modo nueva
+  useFocusEffect(
+    useCallback(() => {
+      if (!editMode) {
+        resetForm();
+      }
+    }, [editMode]),
+  );
 
   // Prefill form when edit listing data arrives
   useEffect(() => {
@@ -128,6 +133,42 @@ export default function PublishScreen() {
       showError('Aviso no encontrado');
     }
   }, [editMode, editLoading, editListing, prefilled]);
+
+  // Detectar ubicación automática por GPS
+  useEffect(() => {
+    if (editMode || locationDetected.current || prefilled) return;
+
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const [reverse] = await Location.reverseGeocodeAsync(loc.coords);
+
+        if (reverse?.city) {
+          let region = reverse.region || '';
+          region = region.replace(/^(Departamento de|Provincia de)\s+/i, '');
+
+          let formatted: string;
+          if (reverse.district) {
+            // "Ciudad Vieja, Montevideo"
+            formatted = `${reverse.district}, ${reverse.city}`;
+          } else if (region && region !== reverse.city) {
+            // "La Plata, Buenos Aires"
+            formatted = `${reverse.city}, ${region}`;
+          } else {
+            // "Córdoba" (evita "Córdoba, Córdoba")
+            formatted = reverse.city;
+          }
+          setLocation(formatted);
+        }
+        locationDetected.current = true;
+      } catch {
+        // Si falla el GPS, el usuario puede elegir manualmente
+      }
+    })();
+  }, [editMode, prefilled]);
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -235,7 +276,11 @@ export default function PublishScreen() {
     return (
       <View style={styles.container}>
         <View style={[styles.emptyHeader, { paddingTop: insets.top + 12 }]}>
-          <Text style={styles.emptyHeaderTitle}>Publicar</Text>
+          <View style={styles.headerRow}>
+            <Sparkles size={24} color={Colors.white} />
+            <Text style={styles.emptyHeaderTitle}>Publicar</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>¡Dale, animate a publicar!</Text>
         </View>
         <View style={styles.emptyAuth}>
           <Plus size={48} color={Colors.textMuted} />
@@ -253,8 +298,8 @@ export default function PublishScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => {
+          resetForm();
           if (editMode) {
-            resetForm();
             router.replace('/publish');
           } else {
             router.back();
@@ -358,8 +403,8 @@ export default function PublishScreen() {
       </ScrollView>
 
       <Modal visible={showLocationPicker} transparent animationType="slide" onRequestClose={() => setShowLocationPicker(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowLocationPicker(false)}>
+          <Pressable style={styles.modalContent} onPress={() => {}}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Seleccionar ubicacion</Text>
               <TouchableOpacity onPress={() => setShowLocationPicker(false)}>
@@ -383,8 +428,8 @@ export default function PublishScreen() {
                 </TouchableOpacity>
               )}
             />
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
@@ -394,11 +439,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
-  emptyHeader: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+
+  emptyHeader: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   emptyHeaderTitle: { fontSize: 26, fontWeight: '800', color: Colors.white },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerSubtitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 4 },
   emptyAuth: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 },
   emptyAuthTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, textAlign: 'center' },
-  emptyAuthSubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  emptyAuthSubtitle: { fontSize: 15, fontWeight: '600', color: '#4B5563', textAlign: 'center', lineHeight: 22, paddingHorizontal: 24 },
   emptyAuthBtn: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
   emptyAuthBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
   form: { padding: 16, gap: 20, paddingBottom: 40 },
@@ -420,7 +468,7 @@ const styles = StyleSheet.create({
   addImageBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
   addImageText: { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
   placeholder: { color: Colors.textMuted },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   modalTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },

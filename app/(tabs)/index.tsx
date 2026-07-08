@@ -13,6 +13,7 @@ import {
   Star,
   Clock,
   ChevronRight,
+  Store,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useListings } from '@/hooks/useListings';
@@ -48,7 +49,13 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.logo}>Umpi</Text>
+        <View style={styles.logoRow}>
+          <Store size={26} color={Colors.white} style={styles.storeIcon} />
+          <Text style={styles.logo}>Umpi</Text>
+        </View>
+        <Text style={styles.tagline}>
+          Todo lo que buscas<Text style={styles.taglineDot}> · </Text>cerca tuyo
+        </Text>
       </View>
 
       <View style={styles.quickSearch}>
@@ -207,10 +214,23 @@ const styles = StyleSheet.create({
     color: Colors.white,
     letterSpacing: -1,
   },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  storeIcon: {
+    marginRight: 8,
+  },
   tagline: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 4,
+    marginLeft: 0,
+  },
+  taglineDot: {
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
   },
   quickSearch: {
     paddingHorizontal: 16,

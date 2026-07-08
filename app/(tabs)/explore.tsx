@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
-import { Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { Search, SlidersHorizontal, X, Compass } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Listing } from '@/types';
 import { ListingCard } from '@/components/ListingCard';
@@ -36,9 +36,14 @@ export default function ExploreScreen() {
   );
   const [showFilters, setShowFilters] = useState(false);
 
-  // Debounce del input de búsqueda (350ms)
+  // Debounce del input de búsqueda (500ms, mínimo 2 caracteres)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(inputValue), 350);
+    if (inputValue.length === 0) {
+      setDebouncedQuery('');
+      return;
+    }
+    if (inputValue.length < 2) return; // no buscar con 1 sola letra
+    const timer = setTimeout(() => setDebouncedQuery(inputValue), 500);
     return () => clearTimeout(timer);
   }, [inputValue]);
 
@@ -56,9 +61,16 @@ export default function ExploreScreen() {
     return categories.find((c) => c.slug === selectedCategory)?.id;
   }, [selectedCategory, categories]);
 
+  // Filtrar categorías que no se muestran como badges
+  const visibleCategories = useMemo(
+    () => categories.filter((cat) => cat.slug !== 'todos'),
+    [categories],
+  );
+
   const {
     data,
     isLoading,
+    isFetching,
     isFetchingNextPage,
     fetchNextPage,
     hasNextPage,
@@ -76,20 +88,88 @@ export default function ExploreScreen() {
   );
 
   const renderItem = ({ item, index }: { item: Listing; index: number }) => (
-    <View style={[
-      styles.gridItem,
-      index % 2 === 0
-        ? { paddingLeft: 16, paddingRight: 6 }
-        : { paddingLeft: 6, paddingRight: 16 },
-    ]}>
-      <ListingCard listing={item} variant="compact" style={styles.cardFill} />
+    <View style={styles.gridColumn}>
+      <View style={[
+        styles.gridItem,
+        index % 2 === 0
+          ? { marginLeft: 16, marginRight: 6 }
+          : { marginLeft: 6, marginRight: 16 },
+      ]}>
+        <ListingCard listing={item} variant="compact" style={styles.cardFill} />
+      </View>
     </View>
   );
 
   const ListHeader = () => (
-    <>
+    <View style={styles.statsBar}>
+      <View style={styles.statsRow}>
+        {isFetching && !isLoading ? (
+          <>
+            <ActivityIndicator size={12} color={Colors.primary} />
+            <Text style={styles.statsSearching}>Buscando...</Text>
+          </>
+        ) : (
+          <Text style={styles.statsText}>
+            {listings.length} aviso{listings.length !== 1 ? 's' : ''} encontrado
+            {listings.length !== 1 ? 's' : ''}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+
+  const ListFooter = () => {
+    if (isFetchingNextPage) {
+      return (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+          <Text style={styles.footerText}>Cargando más avisos...</Text>
+        </View>
+      );
+    }
+    if (!hasNextPage && listings.length > 0) {
+      return (
+        <View style={styles.footerEnd}>
+          <Text style={styles.footerText}>Todos los avisos cargados</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
+  const ListEmpty = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.skeletonGrid}>
+          {[1, 2, 3, 4].map((i) => (
+            <SkeletonCard key={i} variant="compact" />
+          ))}
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>
+            Error al cargar los avisos. Tira de nuevo.
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>No se encontraron avisos</Text>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>Explorar</Text>
+        <View style={styles.headerRow}>
+          <Compass size={24} color={Colors.white} />
+          <Text style={styles.headerTitle}>Explorar</Text>
+        </View>
         <Text style={styles.headerSubtitle}>Descubre miles de avisos</Text>
       </View>
 
@@ -104,6 +184,9 @@ export default function ExploreScreen() {
             onChangeText={setInputValue}
             returnKeyType="search"
           />
+          {isFetching && !isLoading && inputValue.length >= 2 && (
+            <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 4 }} />
+          )}
           {inputValue.length > 0 && (
             <TouchableOpacity onPress={() => setInputValue('')}>
               <X size={18} color={Colors.textMuted} />
@@ -186,89 +269,49 @@ export default function ExploreScreen() {
         </View>
       )}
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryScroll}
-      >
-        <View style={styles.categoriesRow}>
-          {categories.map((cat) => (
-            <CategoryBadge
-              key={cat.id}
-              category={cat}
-              isActive={selectedCategory === cat.slug}
-              onPress={() =>
-                setSelectedCategory(
-                  selectedCategory === cat.slug ? null : cat.slug,
-                )
-              }
-            />
-          ))}
+      {selectedCategory && (
+        <View style={styles.clearBar}>
+          <TouchableOpacity
+            style={styles.clearCatBtn}
+            onPress={() => setSelectedCategory(null)}
+            activeOpacity={0.7}
+          >
+            <X size={14} color={Colors.textSecondary} />
+            <Text style={styles.clearCatText}>Limpiar filtro</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+      )}
 
-      <View style={styles.statsBar}>
-        <Text style={styles.statsText}>
-          {listings.length} aviso{listings.length !== 1 ? 's' : ''} encontrado
-          {listings.length !== 1 ? 's' : ''}
-        </Text>
+      <View style={styles.categoriesSection}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+        >
+          <View style={styles.categoriesRow}>
+            {visibleCategories.map((cat) => (
+              <CategoryBadge
+                key={cat.id}
+                category={cat}
+                isActive={selectedCategory === cat.slug}
+                onPress={() =>
+                  setSelectedCategory(
+                    selectedCategory === cat.slug ? null : cat.slug,
+                  )
+                }
+              />
+            ))}
+          </View>
+        </ScrollView>
       </View>
-    </>
-  );
 
-  const ListFooter = () => {
-    if (isFetchingNextPage) {
-      return (
-        <View style={styles.footerLoader}>
-          <ActivityIndicator size="small" color={Colors.primary} />
-          <Text style={styles.footerText}>Cargando más avisos...</Text>
-        </View>
-      );
-    }
-    if (!hasNextPage && listings.length > 0) {
-      return (
-        <View style={styles.footerEnd}>
-          <Text style={styles.footerText}>Todos los avisos cargados</Text>
-        </View>
-      );
-    }
-    return null;
-  };
-
-  const ListEmpty = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.skeletonGrid}>
-          {[1, 2, 3, 4].map((i) => (
-            <SkeletonCard key={i} variant="compact" />
-          ))}
-        </View>
-      );
-    }
-    if (error) {
-      return (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>
-            Error al cargar los avisos. Tira de nuevo.
-          </Text>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyText}>No se encontraron avisos</Text>
-      </View>
-    );
-  };
-
-  return (
-    <View style={styles.container}>
       <FlatList
         key={selectedCategory || 'all'}
         data={listings}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         numColumns={2}
+        style={styles.list}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
         ListEmptyComponent={ListEmpty}
@@ -288,11 +331,16 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.primary,
     paddingTop: 48,
-    paddingBottom: 16,
+    paddingBottom: 18,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
     marginHorizontal: 0,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontSize: 26,
@@ -301,8 +349,9 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 4,
   },
   searchRow: {
     flexDirection: 'row',
@@ -351,17 +400,45 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   filterChipText: { fontSize: 12, fontWeight: '600', color: Colors.text },
+  list: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
-  categoryScroll: { marginTop: 16, paddingHorizontal: 16 },
+  categoriesSection: { marginTop: 16, paddingHorizontal: 16 },
+  categoryScroll: {},
   categoriesRow: { flexDirection: 'row', gap: 10, paddingRight: 16 },
+  clearBar: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  clearCatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.borderLight,
+  },
+  clearCatText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
   statsBar: { paddingHorizontal: 16, marginTop: 16, marginBottom: 4 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statsSearching: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
   statsText: {
     fontSize: 13,
     color: Colors.textMuted,
     fontWeight: '500',
   },
   gridRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16 },
-  gridItem: { flex: 1, marginBottom: 12 },
+  gridColumn: { width: '50%' },
+  gridItem: { marginBottom: 12 },
   cardFill: { width: '100%' },
   empty: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 15, color: Colors.textMuted },
