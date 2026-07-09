@@ -24,12 +24,14 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- RLS: anyone can view images (needed for listing display)
+DROP POLICY IF EXISTS "listing_images_select_public" ON storage.objects;
 CREATE POLICY "listing_images_select_public"
 ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'listing-images');
 
 -- RLS: authenticated users can upload
+DROP POLICY IF EXISTS "listing_images_insert_auth" ON storage.objects;
 CREATE POLICY "listing_images_insert_auth"
 ON storage.objects FOR INSERT
 TO authenticated
@@ -39,6 +41,7 @@ WITH CHECK (
 );
 
 -- RLS: owner can update their own images
+DROP POLICY IF EXISTS "listing_images_update_own" ON storage.objects;
 CREATE POLICY "listing_images_update_own"
 ON storage.objects FOR UPDATE
 TO authenticated
@@ -46,6 +49,7 @@ USING (bucket_id = 'listing-images' AND owner = auth.uid())
 WITH CHECK (bucket_id = 'listing-images' AND owner = auth.uid());
 
 -- RLS: owner can delete their own images
+DROP POLICY IF EXISTS "listing_images_delete_own" ON storage.objects;
 CREATE POLICY "listing_images_delete_own"
 ON storage.objects FOR DELETE
 TO authenticated

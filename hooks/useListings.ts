@@ -11,6 +11,7 @@ export function useListings() {
         .from('listings')
         .select('*, category:category_id(*)')
         .eq('status', 'active')
+        .order('listing_priority', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(20);
 

@@ -30,7 +30,15 @@ export default function HomeScreen() {
   const { data: categories = [] } = useCategories();
 
   const featured = useMemo(
-    () => listings.filter((l) => l.is_featured).slice(0, 6),
+    () =>
+      listings
+        .filter((l) => l.is_featured && (l.listing_priority ?? 0) > 0)
+        .sort(
+          (a, b) =>
+            (b.listing_priority ?? 0) - (a.listing_priority ?? 0) ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )
+        .slice(0, 6),
     [listings],
   );
   const recent = useMemo(() => {

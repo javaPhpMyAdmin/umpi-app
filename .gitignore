@@ -37,3 +37,6 @@ yarn-error.*
 *.tsbuildinfo
 
 .agents
+.atl/
+pnpm-lock.yaml
+supabase/.temp/

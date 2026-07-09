@@ -1,0 +1,157 @@
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+
+serve(async (req) => {
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  try {
+    // --- 1. Validate JWT and get user ---
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const userEmail = user.email
+    if (!userEmail) {
+      return new Response(JSON.stringify({ error: 'User email not found' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // --- 2. Parse request body ---
+    const { plan_id: planId } = await req.json()
+    if (!planId) {
+      return new Response(JSON.stringify({ error: 'plan_id is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // --- 3. Check if user already has an active subscription ---
+    const { data: existingSub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .gte('expires_at', new Date().toISOString())
+      .maybeSingle()
+
+    if (existingSub) {
+      return new Response(
+        JSON.stringify({ error: 'User already has an active subscription' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
+    // --- 4. Fetch the subscription plan ---
+    const { data: plan, error: planError } = await supabaseAdmin
+      .from('subscription_plans')
+      .select('*')
+      .eq('id', planId)
+      .single()
+
+    if (planError || !plan) {
+      return new Response(JSON.stringify({ error: 'Plan not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // --- 5. Generate external reference ---
+    const externalReference = `sub_${user.id}_${planId}`
+
+    // --- 6. POST to MercadoPago PreApproval API ---
+    const mpAccessToken = Deno.env.get('MP_ACCESS_TOKEN')
+    if (!mpAccessToken) {
+      return new Response(JSON.stringify({ error: 'MP_ACCESS_TOKEN not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${mpAccessToken}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': externalReference,
+      },
+      body: JSON.stringify({
+        reason: `Umpi - ${plan.name}`,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: 'months',
+          transaction_amount: plan.price,
+          currency_id: 'ARS',
+        },
+        payer_email: userEmail,
+        external_reference: externalReference,
+        back_url: {
+          success: 'https://umpi.app/subscription/success',
+          pending: 'https://umpi.app/subscription/pending',
+          failure: 'https://umpi.app/subscription/failure',
+        },
+      }),
+    })
+
+    const mpData = await mpResponse.json()
+
+    if (!mpResponse.ok) {
+      console.error('MP API error:', mpData)
+      return new Response(JSON.stringify({ error: 'MercadoPago API error', details: mpData }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // --- 7. Return init_point and external_reference ---
+    return new Response(
+      JSON.stringify({
+        init_point: mpData.init_point,
+        external_reference: externalReference,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
+  } catch (error) {
+    console.error('create-subscription error:', error)
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
+  }
+})

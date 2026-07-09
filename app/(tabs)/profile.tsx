@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Star, Settings, Crown, LogOut, User, Plus, ChevronRight, Edit3, Trash2 } from 'lucide-react-native';
@@ -11,12 +11,13 @@ import { UserAvatar } from '@/components/UserAvatar';
 import ActionSheet from '@/components/ActionSheet';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import { showError, showSuccess } from '@/lib/toast';
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, refreshProfile } = useAuth();
   const { data: myListings = [], isLoading } = useMyListings(user?.id);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -59,17 +60,45 @@ export default function ProfileScreen() {
     setSelectedListingId(null);
   };
 
+  const handleCancelSubscription = () => {
+    Alert.alert(
+      'Cancelar suscripción',
+      '¿Estás seguro? Tu suscripción se cancelará y perderás los beneficios de visibilidad.',
+      [
+        { text: 'Seguir', style: 'cancel' },
+        {
+          text: 'Cancelar suscripción',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase.functions.invoke('cancel-subscription', {
+                method: 'POST',
+              });
+              if (error) throw new Error('Error al cancelar en MercadoPago');
+              showSuccess('Suscripción cancelada', 'Tu suscripción ha sido cancelada correctamente');
+              await refreshProfile();
+            } catch (err) {
+              showError('Error', err instanceof Error ? err.message : 'Error al cancelar en MercadoPago');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const getSubscriptionColor = (type: string) => {
     if (type === 'premium') return Colors.premium;
-    if (type === 'oro') return Colors.gold;
-    if (type === 'plata') return Colors.platinum;
+    if (type === 'profesional') return Colors.gold;
+    if (type === 'basico') return Colors.platinum;
+    if (type === 'pending') return Colors.warning;
     return Colors.textMuted;
   };
 
   const getSubscriptionLabel = (type: string) => {
     if (type === 'premium') return 'Premium';
-    if (type === 'oro') return 'Oro';
-    if (type === 'plata') return 'Plata';
+    if (type === 'profesional') return 'Profesional';
+    if (type === 'basico') return 'B\u00e1sico';
+    if (type === 'pending') return 'Pendiente';
     return 'Sin plan';
   };
 
@@ -135,6 +164,56 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>Suscripcion</Text>
           </View>
         </View>
+
+        {profile?.subscription_type && profile?.subscription_type !== 'none' && (() => {
+          const type = profile?.subscription_type;
+
+          if (type === 'pending') {
+            return (
+              <View style={styles.subscriptionInfo}>
+                <Text style={[styles.subscriptionLabel, { color: Colors.warning }]}>
+                  Pendiente — Pago en proceso
+                </Text>
+              </View>
+            );
+          }
+
+          const expiresAt = profile?.subscription_expires_at;
+          const expDate = expiresAt ? new Date(expiresAt) : null;
+          const now = Date.now();
+          const isExpired = expDate && expDate.getTime() < now;
+          const diffDays = expDate ? Math.ceil((expDate.getTime() - now) / (1000 * 60 * 60 * 24)) : null;
+          const isExpiringSoon = !isExpired && diffDays !== null && diffDays <= 7;
+          const formattedDate = expDate?.toLocaleDateString('es-AR', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          });
+
+          return (
+            <>
+              <View style={styles.subscriptionInfo}>
+                {expDate ? (
+                  <View style={styles.subscriptionRow}>
+                    <Text style={[styles.subscriptionLabel, isExpired && { color: Colors.error }]}>
+                      {isExpired ? `Vencida el ${formattedDate}` : `Vence: ${formattedDate}`}
+                    </Text>
+                    {isExpiringSoon && <Text style={styles.warningBadge}>Vence pronto</Text>}
+                    {isExpired && <Text style={styles.expiredBadge}>Vencida</Text>}
+                  </View>
+                ) : (
+                  <Text style={styles.subscriptionLabel}>Sin fecha de vencimiento</Text>
+                )}
+              </View>
+
+              {!isExpired && (
+                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelSubscription}>
+                  <Text style={styles.cancelBtnText}>Cancelar suscripción</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          );
+        })()}
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/plans')}>
@@ -257,4 +336,11 @@ const styles = StyleSheet.create({
   emptyAuthBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 24, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.error },
   logoutText: { fontSize: 15, fontWeight: '700', color: Colors.error },
+  subscriptionInfo: { backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginTop: 12 },
+  subscriptionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  subscriptionLabel: { fontSize: 13, color: Colors.textSecondary, flex: 1 },
+  warningBadge: { fontSize: 12, fontWeight: '700', color: Colors.warning, marginLeft: 8 },
+  expiredBadge: { fontSize: 12, fontWeight: '700', color: Colors.error, marginLeft: 8 },
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.error },
+  cancelBtnText: { fontSize: 15, fontWeight: '700', color: Colors.error },
 });

@@ -45,7 +45,11 @@ export function useListingsInfinite(filters: ExploreFilters) {
         query = query.gte('created_at', recentDate.toISOString());
       }
 
-      // Orden
+      // Orden base: destacados primero (por prioridad), luego más recientes
+      query = query.order('listing_priority', { ascending: false });
+      query = query.order('created_at', { ascending: false });
+
+      // Orden seleccionado por el usuario (se aplica DESPUÉS como criterio secundario)
       switch (filters.sortBy) {
         case 'price_asc':
           query = query.order('price', { ascending: true });

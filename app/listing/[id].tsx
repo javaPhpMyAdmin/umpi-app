@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X } from 'lucide-react-native';
+import { GestureHandlerRootView, ScrollView as GHSscrollView } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ import BottomSheetDialog from '@/components/BottomSheetDialog';
 import ActionSheet from '@/components/ActionSheet';
 import { useDeleteListing } from '@/hooks/useListings';
 import { SkeletonCard } from '@/components/SkeletonCard';
+import ZoomableImage from '@/components/ZoomableImage';
 
 // ⚠️ Set to 0 in production — this is only for visual QA of the skeleton
 const SIMULATED_DELAY_MS = 0;
@@ -24,11 +26,13 @@ export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const imageHeight = Math.min(screenHeight * 0.35, 340);
+  const modalImageSize = Math.min(screenWidth * 0.95, 480);
   const [listing, setListing] = useState<Listing | null>(null);
   const [seller, setSeller] = useState<Profile | null>(null);
   const [hasConversation, setHasConversation] = useState<string | null>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [reviewCheckLoading, setReviewCheckLoading] = useState(true);
+  const [showImageModal, setShowImageModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
@@ -114,6 +118,16 @@ export default function ListingDetailScreen() {
     };
     run();
   }, [listing?.id, user?.id]);
+
+  // Android back button closes image modal instead of navigating back
+  useEffect(() => {
+    if (!showImageModal) return;
+    const handler = BackHandler.addEventListener('hardwareBackPress', () => {
+      setShowImageModal(false);
+      return true;
+    });
+    return () => handler.remove();
+  }, [showImageModal]);
 
   const handleSubmitReview = async (rating: number, comment: string) => {
     if (!user || !hasConversation) return;
@@ -213,33 +227,16 @@ export default function ListingDetailScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={{ flex: 1 }}>
+      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+        <ScrollView showsVerticalScrollIndicator={false}>
         <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight }]}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onScroll={e => {
-              const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
-              setCurrentImage(page);
-            }}
-            scrollEventThrottle={16}
-          >
-            {allImages.map((uri, i) => (
-              <Image key={`${uri}-${i}`} source={{ uri }} style={[styles.image, { width: screenWidth, height: imageHeight }]} resizeMode="cover" />
-            ))}
-          </ScrollView>
+          <TouchableOpacity activeOpacity={0.95} onPress={() => setShowImageModal(true)}>
+            <Image source={{ uri: allImages[0] }} style={[styles.image, { width: screenWidth, height: imageHeight }]} resizeMode="cover" />
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
             <ArrowLeft size={22} color={Colors.white} />
           </TouchableOpacity>
-          {allImages.length > 1 && (
-            <View style={styles.dots}>
-              {allImages.map((_, i) => (
-                <View key={i} style={[styles.dot, i === currentImage && styles.dotActive]} />
-              ))}
-            </View>
-          )}
         </View>
 
         <View style={styles.content}>
@@ -351,6 +348,43 @@ export default function ListingDetailScreen() {
         destructiveSecondary
       />
 
+      {/* Image gallery overlay */}
+      {showImageModal && (
+        <View style={styles.imageModalOverlay}>
+          {/* Tap outside the card to close */}
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowImageModal(false)} />
+          {/* Card on top */}
+          <View style={[styles.modalCard, { width: modalImageSize, height: modalImageSize }]}>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowImageModal(false)}>
+              <X size={20} color={Colors.text} />
+            </TouchableOpacity>
+
+            <GHSscrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={e => {
+                const page = Math.round(e.nativeEvent.contentOffset.x / modalImageSize);
+                setCurrentImage(page);
+              }}
+              scrollEventThrottle={16}
+            >
+              {allImages.map((uri, i) => (
+                <ZoomableImage key={`modal-${uri}-${i}`} uri={uri} size={modalImageSize} />
+              ))}
+            </GHSscrollView>
+
+            {allImages.length > 1 && (
+              <View style={styles.modalDots}>
+                {allImages.map((_, i) => (
+                  <View key={i} style={[styles.modalDot, i === currentImage && styles.modalDotActive]} />
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
         {isOwner ? (
           <TouchableOpacity style={styles.ownerMenuBtn} onPress={() => setShowActionSheet(true)}>
@@ -365,6 +399,7 @@ export default function ListingDetailScreen() {
         )}
       </View>
     </View>
+  </View>
   );
 }
 
@@ -407,4 +442,12 @@ const styles = StyleSheet.create({
   unavailable: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 8 },
   unavailableTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, textAlign: 'center' },
   unavailableText: { fontSize: 14, color: Colors.textMuted, textAlign: 'center' },
+  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+  modalCard: { backgroundColor: Colors.white, borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 16 },
+  modalImage: { resizeMode: 'cover' },
+  imageModalOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+  modalCloseBtn: { position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.06)', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  modalDots: { position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  modalDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.2)' },
+  modalDotActive: { width: 22, backgroundColor: Colors.primary },
 });

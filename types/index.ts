@@ -87,3 +87,15 @@ export interface SubscriptionPlan {
   listing_priority: number;
   created_at: string;
 }
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plan_id: string | null;
+  mp_preapproval_id: string | null;
+  external_reference: string | null;
+  status: string;
+  started_at: string;
+  expires_at: string | null;
+  created_at: string;
+}

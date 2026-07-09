@@ -7,6 +7,16 @@ context: |
   Metro bundler, path alias @/* -> project root
   Spanish-language classifieds marketplace (Argentina locale, es-AR prices)
   Components: default exports, functional, StyleSheet.create at bottom
+  UI: Spanish (Argentina), prices use es-AR formatting
+  Execution mode: interactive, Delivery: ask-always
+
+delivery:
+  strategy: ask-always
+  review_budget_lines: 800
+
+language:
+  artifacts: en-US
+  ui: es-AR
 
 rules:
   proposal:
@@ -24,6 +34,7 @@ rules:
     - Follow existing code patterns
     tdd: false
     test_command: ""
+    build_command: "npm run typecheck"
   verify:
     test_command: ""
     build_command: "npm run typecheck"
