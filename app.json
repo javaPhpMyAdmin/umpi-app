@@ -41,6 +41,9 @@
         "projectId": "0f68b42c-409a-4982-9b21-8cae0c76dd4f"
       }
     },
-    "owner": "chelobat16411"
+    "owner": "chelobat16411",
+    "android": {
+      "package": "com.chelobat16411.umpi"
+    }
   }
 }
