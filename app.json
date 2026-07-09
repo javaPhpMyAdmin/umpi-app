@@ -20,9 +20,27 @@
       "backgroundColor": "#FF6B35",
       "resizeMode": "contain"
     },
-    "plugins": ["expo-router", "expo-font", "expo-web-browser"],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0f68b42c-409a-4982-9b21-8cae0c76dd4f"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      "expo-updates"
+    ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0f68b42c-409a-4982-9b21-8cae0c76dd4f"
+      }
+    },
+    "owner": "chelobat16411"
   }
 }

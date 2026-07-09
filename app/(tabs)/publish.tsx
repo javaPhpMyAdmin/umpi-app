@@ -55,6 +55,7 @@ export default function PublishScreen() {
   const editMutation = useEditListing();
 
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   const LOCATIONS = useMemo(() => [
     'Buenos Aires (CABA)',
@@ -134,17 +135,21 @@ export default function PublishScreen() {
     }
   }, [editMode, editLoading, editListing, prefilled]);
 
-  // Detectar ubicación automática por GPS
+  // Detectar ubicación automática — primero cache, después GPS con feedback
   useEffect(() => {
     if (editMode || locationDetected.current || prefilled) return;
 
     (async () => {
+      setLocationLoading(true);
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') return;
 
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const [reverse] = await Location.reverseGeocodeAsync(loc.coords);
+        // Intentar ubicación cacheada primero (instantáneo)
+        const cached = await Location.getLastKnownPositionAsync({ maxAge: 300_000 }); // 5 min
+        const coords = cached?.coords || (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })).coords;
+
+        const [reverse] = await Location.reverseGeocodeAsync(coords);
 
         if (reverse?.city) {
           let region = reverse.region || '';
@@ -152,20 +157,19 @@ export default function PublishScreen() {
 
           let formatted: string;
           if (reverse.district) {
-            // "Ciudad Vieja, Montevideo"
             formatted = `${reverse.district}, ${reverse.city}`;
           } else if (region && region !== reverse.city) {
-            // "La Plata, Buenos Aires"
             formatted = `${reverse.city}, ${region}`;
           } else {
-            // "Córdoba" (evita "Córdoba, Córdoba")
             formatted = reverse.city;
           }
           setLocation(formatted);
         }
         locationDetected.current = true;
       } catch {
-        // Si falla el GPS, el usuario puede elegir manualmente
+        // Si falla, el usuario puede elegir manualmente
+      } finally {
+        setLocationLoading(false);
       }
     })();
   }, [editMode, prefilled]);
@@ -197,6 +201,8 @@ export default function PublishScreen() {
   const handlePublish = async () => {
     if (!title.trim()) return showError('Error', 'Ingresa un titulo');
     if (!selectedCategory) return showError('Error', 'Selecciona una categoria');
+    if (priceType === 'fixed' && !price.trim()) return showError('Error', 'Ingresa un precio');
+    if (images.length === 0) return showError('Error', 'Agrega al menos una foto');
     if (!user) return showError('Error', 'Debes iniciar sesion');
 
     setLoading(true);
@@ -328,7 +334,7 @@ export default function PublishScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Titulo</Text>
+          <Text style={styles.sectionLabel}>Titulo <Text style={styles.required}>*</Text></Text>
           <View style={styles.inputRow}>
             <Tag size={18} color={Colors.textMuted} />
             <TextInput style={styles.input} placeholder="Que queres publicar?" placeholderTextColor={Colors.textMuted} value={title} onChangeText={setTitle} />
@@ -344,7 +350,7 @@ export default function PublishScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Precio</Text>
+          <Text style={styles.sectionLabel}>Precio <Text style={styles.required}>*</Text></Text>
           <View style={styles.priceRow}>
             <TouchableOpacity style={[styles.priceTypeBtn, priceType === 'fixed' && { backgroundColor: Colors.primary }]} onPress={() => setPriceType('fixed')}>
               <Text style={[styles.priceTypeText, priceType === 'fixed' && { color: Colors.white }]}>Fijo</Text>
@@ -365,14 +371,18 @@ export default function PublishScreen() {
           <Text style={styles.sectionLabel}>Ubicacion</Text>
           <TouchableOpacity style={styles.inputRow} onPress={() => setShowLocationPicker(true)} activeOpacity={0.7}>
             <MapPin size={18} color={location ? Colors.primary : Colors.textMuted} />
-            <Text style={[styles.input, !location && styles.placeholder]}>
-              {location || 'Seleccionar ciudad...'}
-            </Text>
+            {locationLoading ? (
+              <Text style={[styles.input, styles.loadingText]}>Obteniendo ubicacion...</Text>
+            ) : (
+              <Text style={[styles.input, !location && styles.placeholder]}>
+                {location || 'Seleccionar ciudad...'}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Fotos {images.length > 0 ? `(${images.length}/10)` : ''}</Text>
+          <Text style={styles.sectionLabel}>Fotos <Text style={styles.required}>*</Text> {images.length > 0 ? `(${images.length}/10)` : ''}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.imageRow}>
               {images.map((uri, index) => (
@@ -452,6 +462,7 @@ const styles = StyleSheet.create({
   form: { padding: 16, gap: 20, paddingBottom: 40 },
   section: { gap: 8 },
   sectionLabel: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
+  required: { color: Colors.error, fontWeight: '700' },
   categoryRow: { flexDirection: 'row', gap: 8 },
   inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, gap: 8 },
   input: { flex: 1, fontSize: 14, color: Colors.text },
@@ -468,6 +479,7 @@ const styles = StyleSheet.create({
   addImageBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
   addImageText: { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
   placeholder: { color: Colors.textMuted },
+  loadingText: { color: Colors.textMuted, fontStyle: 'italic' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
