@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Star, Check, Crown, Zap } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { Colors } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan } from '@/types';
@@ -46,10 +47,18 @@ export default function PlansScreen() {
 
     try {
       // 3.3 Call create-subscription Edge Function
+      // TODO: revertir payer_email fijo antes de producción
+      const testBuyerEmail = 'test_user_906191175949745667@testuser.com';
+      const redirectUrl = Linking.createURL('subscription/result');
       const { data: efData, error: efError } = await supabase.functions.invoke(
         'create-subscription',
-        // TODO: revertir payer_email fijo antes de producción
-        { body: { plan_id: planId } },
+        {
+          body: {
+            plan_id: planId,
+            payer_email: testBuyerEmail,
+            back_url: redirectUrl,
+          },
+        },
       );
 
       if (efError || !efData?.init_point) {
@@ -87,7 +96,7 @@ export default function PlansScreen() {
       }
 
       // 3.5 Open MP page via expo-web-browser
-      const result = await WebBrowser.openAuthSessionAsync(efData.init_point);
+      const result = await WebBrowser.openAuthSessionAsync(efData.init_point, redirectUrl);
 
       // 3.6 Browser closed without completing the flow
       if (result.type === 'cancel') {

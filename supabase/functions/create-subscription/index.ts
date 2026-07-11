@@ -45,7 +45,7 @@ serve(async (req) => {
     }
 
     // --- 2. Parse request body ---
-    const { plan_id: planId, payer_email: overrideEmail } = await req.json()
+    const { plan_id: planId, payer_email: overrideEmail, back_url: overrideBackUrl } = await req.json()
     if (!planId) {
       return new Response(JSON.stringify({ error: 'plan_id is required' }), {
         status: 400,
@@ -55,6 +55,9 @@ serve(async (req) => {
 
     // Allow overriding payer_email for testing (e.g. with MP test buyer email)
     const payerEmail = overrideEmail || userEmail
+
+    // Use the back_url from the app (deep link) or fall back to placeholder
+    const backUrl = overrideBackUrl || 'https://umpi.app/subscription/success'
 
     // --- 3. Check if user already has an active subscription ---
     const { data: existingSub } = await supabaseAdmin
@@ -120,7 +123,7 @@ serve(async (req) => {
       },
         payer_email: payerEmail,
       external_reference: externalReference,
-      back_url: 'https://umpi.app/subscription/success',
+      back_url: backUrl,
     }
 
     console.error('MP request body:', JSON.stringify(mpBody, null, 2))
