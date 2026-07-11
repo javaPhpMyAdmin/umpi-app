@@ -49,14 +49,19 @@ export default function PlansScreen() {
       // 3.3 Call create-subscription Edge Function
       // TODO: revertir payer_email fijo antes de producción
       const testBuyerEmail = 'test_user_906191175949745667@testuser.com';
+      // MP requires http/https URLs for back_url — use a valid-looking URL
+      // openAuthSessionAsync will intercept the redirect regardless of whether the URL exists
       const redirectUrl = Linking.createURL('subscription/result');
+      const mpBackUrl = Platform.OS === 'web'
+        ? redirectUrl
+        : 'https://umpi.app/subscription/result';
       const { data: efData, error: efError } = await supabase.functions.invoke(
         'create-subscription',
         {
           body: {
             plan_id: planId,
             payer_email: testBuyerEmail,
-            back_url: redirectUrl,
+            back_url: mpBackUrl,
           },
         },
       );
