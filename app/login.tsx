@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -8,6 +9,7 @@ import { showError } from '@/lib/toast';
 import { GoogleIcon } from '@/components/GoogleIcon';
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
@@ -51,7 +53,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
         <ArrowLeft size={24} color={Colors.text} />
       </TouchableOpacity>
@@ -104,6 +106,7 @@ export default function LoginScreen() {
 }
 
 function LoginSkeleton() {
+  const insets = useSafeAreaInsets();
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -122,8 +125,8 @@ function LoginSkeleton() {
   );
 
   return (
-    <View style={styles.container}>
-      <Block style={{ width: 24, height: 24, borderRadius: 8, marginTop: 48, marginBottom: 24 }} />
+    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
+      <Block style={{ width: 24, height: 24, borderRadius: 8, marginBottom: 24 }} />
       <Block style={{ width: '55%', height: 28, borderRadius: 8, marginBottom: 8 }} />
       <Block style={{ width: '40%', height: 14, borderRadius: 6, marginBottom: 24 }} />
       <Block style={{ width: '100%', height: 48, borderRadius: 14, marginBottom: 12 }} />
@@ -136,8 +139,8 @@ function LoginSkeleton() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: 24 },
-  backBtn: { marginTop: 48, marginBottom: 24 },
+  container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 24, paddingBottom: 24 },
+  backBtn: { marginBottom: 24 },
   title: { fontSize: 28, fontWeight: '800', color: Colors.text },
   subtitle: { fontSize: 14, color: Colors.textMuted, marginTop: 4, marginBottom: 24 },
   input: { backgroundColor: Colors.surface, padding: 14, borderRadius: 14, fontSize: 15, color: Colors.text, marginBottom: 12 },

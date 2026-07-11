@@ -56,6 +56,7 @@ export default function PublishScreen() {
 
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [gpsDetected, setGpsDetected] = useState(false);
 
   const LOCATIONS = useMemo(() => [
     'Buenos Aires (CABA)',
@@ -94,6 +95,7 @@ export default function PublishScreen() {
     setImages([]);
     setInitialImages([]);
     setPrefilled(false);
+    setGpsDetected(false);
     locationDetected.current = false;
   }, []);
 
@@ -139,17 +141,25 @@ export default function PublishScreen() {
   useEffect(() => {
     if (editMode || locationDetected.current || prefilled) return;
 
+    let cancelled = false;
     (async () => {
       setLocationLoading(true);
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
+        if (cancelled) return;
+        if (status !== 'granted') {
+          // Permiso denegado — el usuario elige manual
+          return;
+        }
 
         // Intentar ubicación cacheada primero (instantáneo)
         const cached = await Location.getLastKnownPositionAsync({ maxAge: 300_000 }); // 5 min
+        if (cancelled) return;
         const coords = cached?.coords || (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })).coords;
+        if (cancelled) return;
 
         const [reverse] = await Location.reverseGeocodeAsync(coords);
+        if (cancelled) return;
 
         if (reverse?.city) {
           let region = reverse.region || '';
@@ -164,14 +174,16 @@ export default function PublishScreen() {
             formatted = reverse.city;
           }
           setLocation(formatted);
+          setGpsDetected(true);
         }
         locationDetected.current = true;
       } catch {
         // Si falla, el usuario puede elegir manualmente
       } finally {
-        setLocationLoading(false);
+        if (!cancelled) setLocationLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [editMode, prefilled]);
 
   const handlePickImage = async () => {
@@ -281,7 +293,7 @@ export default function PublishScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={[styles.emptyHeader, { paddingTop: insets.top + 12 }]}>
+        <View style={[styles.emptyHeader, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
           <View style={styles.headerRow}>
             <Sparkles size={24} color={Colors.white} />
             <Text style={styles.emptyHeaderTitle}>Publicar</Text>
@@ -370,7 +382,7 @@ export default function PublishScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Ubicacion</Text>
           <TouchableOpacity style={styles.inputRow} onPress={() => setShowLocationPicker(true)} activeOpacity={0.7}>
-            <MapPin size={18} color={location ? Colors.primary : Colors.textMuted} />
+            <MapPin size={18} color={gpsDetected ? Colors.error : location ? Colors.primary : Colors.textMuted} />
             {locationLoading ? (
               <Text style={[styles.input, styles.loadingText]}>Obteniendo ubicacion...</Text>
             ) : (
@@ -429,6 +441,7 @@ export default function PublishScreen() {
                   style={[styles.locationItem, location === item && styles.locationItemActive]}
                   onPress={() => {
                     setLocation(item);
+                    setGpsDetected(false);
                     setShowLocationPicker(false);
                   }}
                 >

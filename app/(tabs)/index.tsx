@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Store,
 } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/colors';
 import { useListings } from '@/hooks/useListings';
 import { useCategories } from '@/hooks/useCategories';
@@ -56,7 +57,9 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <StatusBar style="dark" />
+      {/* marginTop desplaza el header debajo de la status bar; paddingTop mantiene el área naranja igual que antes */}
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
         <View style={styles.logoRow}>
           <Store size={26} color={Colors.white} style={styles.storeIcon} />
           <Text style={styles.logo}>Umpi</Text>

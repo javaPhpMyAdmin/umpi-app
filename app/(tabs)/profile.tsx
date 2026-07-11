@@ -1,4 +1,5 @@
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Pressable } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Star, Settings, Crown, LogOut, User, Plus, ChevronRight, Edit3, Trash2 } from 'lucide-react-native';
@@ -142,7 +143,8 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <StatusBar style="dark" />
+        <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
           <View style={styles.headerRow}>
             <User size={24} color={Colors.white} />
             <Text style={styles.headerTitle}>Perfil</Text>
@@ -162,7 +164,8 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <StatusBar style="dark" />
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
         <View style={styles.headerRow}>
           <User size={24} color={Colors.white} />
           <Text style={styles.headerTitle}>Perfil</Text>

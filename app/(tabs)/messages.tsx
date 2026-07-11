@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, Pressable, RefreshControl } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MessageCircle, ArrowRight, Trash2 } from 'lucide-react-native';
@@ -44,7 +45,8 @@ export default function MessagesScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <StatusBar style="dark" />
+        <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
           <View style={styles.headerRow}>
             <MessageCircle size={24} color={Colors.white} />
             <Text style={styles.headerTitle}>Mensajes</Text>
@@ -64,7 +66,8 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <StatusBar style="dark" />
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
         <View style={styles.headerRow}>
           <MessageCircle size={24} color={Colors.white} />
           <Text style={styles.headerTitle}>Mensajes</Text>

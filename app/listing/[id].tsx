@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions, BackHandler } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X } from 'lucide-react-native';
@@ -176,21 +177,23 @@ export default function ListingDetailScreen() {
     if (!user) return setShowLoginPrompt(true);
     if (!listing || user.id === listing.user_id) return;
 
-    // Buscar cualquier conversación existente (incluso archivada)
-    const { data } = await supabase
+    // Buscar la conversación más reciente (evitar maybeSingle que falla si hay múltiples)
+    const { data: conversations } = await supabase
       .from('conversations')
       .select('id')
       .eq('listing_id', listing.id)
       .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (data) {
+    const existingConv = conversations?.[0];
+    if (existingConv) {
       // Si estaba archivada, la reabrimos
       await supabase.rpc('reopen_conversation', {
-        conv_id: data.id,
+        conv_id: existingConv.id,
         user_id: user.id,
       });
-      router.push(`/chat/${data.id}`);
+      router.push(`/chat/${existingConv.id}`);
     } else {
       // No se crea la conversación aún — se crea al enviar el primer mensaje
       const name = encodeURIComponent(seller?.full_name || 'Usuario');
@@ -201,6 +204,8 @@ export default function ListingDetailScreen() {
   if (loading || !listing) {
     return (
       <View style={styles.container}>
+        <StatusBar style="dark" />
+        <View style={{ marginTop: insets.top }} />
         <SkeletonCard variant="detail" />
       </View>
     );
@@ -211,10 +216,11 @@ export default function ListingDetailScreen() {
   if (listing.status !== 'active') {
     return (
       <View style={styles.container}>
-        <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight }]}>
+        <StatusBar style="dark" />
+        <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight, marginTop: insets.top }]}>
           <Image source={{ uri: allImages[0] || '' }} style={[styles.image, { width: screenWidth, height: imageHeight }]} resizeMode="cover" />
           <View style={styles.imageOverlay} />
-          <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backBtn, { top: 8 }]} onPress={() => router.back()}>
             <ArrowLeft size={22} color={Colors.white} />
           </TouchableOpacity>
         </View>
@@ -227,14 +233,15 @@ export default function ListingDetailScreen() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+      <StatusBar style="dark" />
       <View style={[styles.container, { paddingBottom: insets.bottom }]}>
         <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight }]}>
+        <View style={[styles.imageWrap, { width: screenWidth, height: imageHeight, marginTop: insets.top }]}>
           <TouchableOpacity activeOpacity={0.95} onPress={() => setShowImageModal(true)}>
             <Image source={{ uri: allImages[0] }} style={[styles.image, { width: screenWidth, height: imageHeight }]} resizeMode="cover" />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.backBtn, { top: insets.top + 8 }]} onPress={() => router.back()}>
+          <TouchableOpacity style={[styles.backBtn, { top: 8 }]} onPress={() => router.back()}>
             <ArrowLeft size={22} color={Colors.white} />
           </TouchableOpacity>
         </View>

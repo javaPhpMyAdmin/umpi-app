@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Animated, Image, Keyboard, RefreshControl } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
@@ -90,8 +91,10 @@ export default function ChatScreen() {
   // Realtime subscription — solo para conversaciones existentes
   useEffect(() => {
     if (!conversationId) return;
+    // Nombre único por montada para evitar race conditions al salir/volver del mismo chat
+    const channelName = `messages-${conversationId}-${Date.now()}`;
     const sub = supabase
-      .channel(`messages-${conversationId}`)
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -210,8 +213,9 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" />
       {/* Header fuera del KeyboardAvoidingView — siempre estático */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <ArrowLeft size={24} color={Colors.white} />
         </TouchableOpacity>

@@ -9,6 +9,7 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { Search, SlidersHorizontal, X, Compass } from 'lucide-react-native';
@@ -165,7 +166,8 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <StatusBar style="dark" />
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
         <View style={styles.headerRow}>
           <Compass size={24} color={Colors.white} />
           <Text style={styles.headerTitle}>Explorar</Text>

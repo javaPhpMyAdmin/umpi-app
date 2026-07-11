@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
@@ -8,6 +9,7 @@ import { showError } from '@/lib/toast';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 
 export default function RegisterScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signUp } = useAuth();
   const [fullName, setFullName] = useState('');
@@ -28,7 +30,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
         <ArrowLeft size={24} color={Colors.text} />
       </TouchableOpacity>
@@ -66,8 +68,8 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: 24 },
-  backBtn: { marginTop: 48, marginBottom: 24 },
+  container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 24, paddingBottom: 24 },
+  backBtn: { marginBottom: 24 },
   title: { fontSize: 28, fontWeight: '800', color: Colors.text },
   subtitle: { fontSize: 14, color: Colors.textMuted, marginTop: 4, marginBottom: 24 },
   input: { backgroundColor: Colors.surface, padding: 14, borderRadius: 14, fontSize: 15, color: Colors.text, marginBottom: 12 },
