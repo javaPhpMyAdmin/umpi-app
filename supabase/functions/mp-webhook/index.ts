@@ -14,46 +14,60 @@ serve(async (req) => {
   }
 
   try {
-    // --- 1. Optional X-Signature validation ---
-    const webhookSecret = Deno.env.get('MP_WEBHOOK_SECRET')
-    if (webhookSecret) {
-      const signature = req.headers.get('X-Signature')
-      if (!signature) {
-        return new Response(JSON.stringify({ error: 'Missing X-Signature header' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' },
-        })
+    // --- 1. Parse payload (JSON or form-encoded) ---
+    const contentType = req.headers.get('content-type') || ''
+    let body: Record<string, unknown> = {}
+
+    if (contentType.includes('application/json')) {
+      body = await req.json()
+    } else if (contentType.includes('application/x-www-form-urlencoded')) {
+      const form = await req.formData()
+      for (const [k, v] of form.entries()) {
+        body[k] = v
       }
-      // TODO: Implement full HMAC-SHA256 validation once MP_WEBHOOK_SECRET is available.
-      // MercadoPago signs with: ts=<timestamp>,v1=<hmac> where hmac = HMAC-SHA256(data.id + ts + secret)
-      // For now, presence of the header is accepted in dev.
-      console.log('Webhook signature header present — skipping full HMAC validation (dev mode)')
     } else {
-      console.warn(
-        'MP_WEBHOOK_SECRET not configured — accepting webhook without signature validation',
-      )
+      // Try JSON as fallback
+      try {
+        body = await req.json()
+      } catch {
+        // ignore parse errors
+      }
     }
 
-    // --- 2. Parse webhook payload ---
-    const body = await req.json()
-    const { action, data } = body
+    // --- 2. Log full payload for debugging ---
+    console.log('mp-webhook received:', JSON.stringify({ headers: Object.fromEntries(req.headers.entries()), body }, null, 2))
 
-    if (!action || !data?.id) {
-      return new Response(JSON.stringify({ error: 'Invalid payload: action and data.id required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      })
+    // --- 3. Extract preapproval ID from any format ---
+    // Webhook JSON:  { action: "preapproval.updated", data: { id } }
+    // IPN form:      { topic: "preapproval", id }  or  { type: "preapproval", id }
+    // IPN query:     ?topic=preapproval&id=...
+    let preapprovalId: string | null = null
+
+    // Format A: { action: "preapproval.updated", data: { id } }
+    if (!preapprovalId && (body as any).data?.id) {
+      preapprovalId = (body as any).data.id
     }
 
-    // --- 3. Only process preapproval.updated events ---
-    if (action !== 'preapproval.updated') {
+    // Format B: { topic: "preapproval", id } or { type: "preapproval", id }
+    if (!preapprovalId && (body as any).id) {
+      const topic = (body as any).topic || (body as any).type
+      if (topic === 'preapproval') {
+        preapprovalId = (body as any).id
+      }
+    }
+
+    // Format C: { id } as bare preapproval ID
+    if (!preapprovalId && (body as any).id) {
+      preapprovalId = (body as any).id
+    }
+
+    if (!preapprovalId) {
+      console.log('mp-webhook: no preapproval ID found in payload — acking anyway')
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     }
-
-    const preapprovalId = data.id
 
     // --- 4. Fetch preapproval from MercadoPago to get authoritative status ---
     const mpAccessToken = Deno.env.get('MP_ACCESS_TOKEN')
@@ -86,7 +100,6 @@ serve(async (req) => {
 
     // --- 5. Parse external_reference to identify user and plan ---
     // Format: sub_{user_id}_{plan_id}
-    // Both user_id and plan_id are UUIDs (no underscores), so split('_') yields 3 parts
     const externalReference: string | undefined = preapproval.external_reference
     if (!externalReference || !externalReference.startsWith('sub_')) {
       console.error('Invalid or missing external_reference:', externalReference)
@@ -111,28 +124,25 @@ serve(async (req) => {
     const mpStatus: string = preapproval.status
 
     if (mpStatus === 'authorized') {
-      // Fetch plan details to get slug and listing_priority
+      // Fetch plan details
       const { data: plan } = await supabaseAdmin
         .from('subscription_plans')
         .select('slug, listing_priority')
         .eq('id', planId)
         .single()
 
-      // Upsert subscription idempotently via mp_preapproval_id UNIQUE constraint
+      // Upsert subscription
       const { error: upsertError } = await supabaseAdmin
         .from('subscriptions')
-        .upsert(
-          {
-            user_id: userId,
-            plan_id: planId,
-            mp_preapproval_id: preapprovalId,
-            external_reference: externalReference,
-            status: 'active',
-            started_at: preapproval.date_created,
-            expires_at: preapproval.next_billing_date,
-          },
-          { onConflict: 'mp_preapproval_id' },
-        )
+        .upsert({
+          user_id: userId,
+          plan_id: planId,
+          mp_preapproval_id: preapprovalId,
+          external_reference: externalReference,
+          status: 'active',
+          started_at: preapproval.date_created,
+          expires_at: preapproval.next_billing_date,
+        }, { onConflict: 'mp_preapproval_id' })
 
       if (upsertError) {
         console.error('Failed to upsert subscription:', upsertError)
@@ -142,7 +152,7 @@ serve(async (req) => {
         })
       }
 
-      // Update profile with subscription level and expiration
+      // Update profile
       if (plan?.slug) {
         await supabaseAdmin
           .from('profiles')
@@ -162,19 +172,16 @@ serve(async (req) => {
 
       console.log(`Subscription authorized: user=${userId} plan=${planId} mp_id=${preapprovalId}`)
     } else if (mpStatus === 'cancelled') {
-      // Update subscription status
       await supabaseAdmin
         .from('subscriptions')
         .update({ status: 'cancelled' })
         .eq('mp_preapproval_id', preapprovalId)
 
-      // Unfeature all user's listings
       await supabaseAdmin
         .from('listings')
         .update({ is_featured: false, listing_priority: 0 })
         .eq('user_id', userId)
 
-      // Reset profile subscription
       await supabaseAdmin
         .from('profiles')
         .update({ subscription_type: 'none', subscription_expires_at: null })
@@ -182,19 +189,16 @@ serve(async (req) => {
 
       console.log(`Subscription cancelled: user=${userId} mp_id=${preapprovalId}`)
     } else if (mpStatus === 'expired') {
-      // Update subscription status
       await supabaseAdmin
         .from('subscriptions')
         .update({ status: 'expired' })
         .eq('mp_preapproval_id', preapprovalId)
 
-      // Unfeature all user's listings
       await supabaseAdmin
         .from('listings')
         .update({ is_featured: false, listing_priority: 0 })
         .eq('user_id', userId)
 
-      // Reset profile subscription
       await supabaseAdmin
         .from('profiles')
         .update({ subscription_type: 'none', subscription_expires_at: null })

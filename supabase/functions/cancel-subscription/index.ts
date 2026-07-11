@@ -37,19 +37,28 @@ serve(async (req) => {
     }
 
     // --- 2. Get user's active subscription ---
-    const { data: subscription, error: subError } = await supabaseAdmin
+    const { data: subscriptions, error: subError } = await supabaseAdmin
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
       .eq('status', 'active')
-      .maybeSingle()
+      .not('mp_preapproval_id', 'is', null)
+      .not('mp_preapproval_id', 'eq', '')
+      .order('started_at', { ascending: false })
 
-    if (subError || !subscription) {
-      return new Response(JSON.stringify({ error: 'No se encontró una suscripción activa' }), {
+    if (subError || !subscriptions || subscriptions.length === 0) {
+      return new Response(JSON.stringify({
+        error: 'No se encontró una suscripción activa',
+      }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       })
     }
+
+    console.log(`cancel-subscription: found ${subscriptions.length} active subscription(s)`)
+    subscriptions.forEach((s, i) => console.log(`  [${i}] id=${s.id} mp_preapproval_id=${s.mp_preapproval_id} plan_id=${s.plan_id} started_at=${s.started_at}`))
+
+    const activeSub = subscriptions[0]
 
     // --- 3. Call MercadoPago API to cancel preapproval ---
     const mpAccessToken = Deno.env.get('MP_ACCESS_TOKEN')
@@ -60,7 +69,8 @@ serve(async (req) => {
       })
     }
 
-    const preapprovalId = subscription.mp_preapproval_id
+    const preapprovalId = activeSub.mp_preapproval_id
+    console.log(`cancel-subscription: attempting to cancel preapproval ${preapprovalId} for user ${user.id}`)
     if (!preapprovalId) {
       return new Response(JSON.stringify({ error: 'No se encontró el ID de preaprobación en MP' }), {
         status: 400,
@@ -80,11 +90,17 @@ serve(async (req) => {
       },
     )
 
+    const mpResponseText = await mpResponse.text()
+    console.log(`cancel-subscription: MP response ${mpResponse.status}: ${mpResponseText}`)
+
     if (!mpResponse.ok) {
-      const mpError = await mpResponse.text()
-      console.error('MP API cancel error:', mpError)
-      return new Response(JSON.stringify({ error: 'Error al cancelar en MercadoPago' }), {
-        status: 500,
+      return new Response(JSON.stringify({
+        error: `MercadoPago rechazó la cancelación (HTTP ${mpResponse.status})`,
+        mp_status: mpResponse.status,
+        mp_body: mpResponseText,
+        preapproval_id: preapprovalId,
+      }), {
+        status: 502,
         headers: { 'Content-Type': 'application/json' },
       })
     }
@@ -94,7 +110,7 @@ serve(async (req) => {
     await supabaseAdmin
       .from('subscriptions')
       .update({ status: 'cancelled' })
-      .eq('id', subscription.id)
+      .eq('id', activeSub.id)
 
     // Unfeature all user's listings
     await supabaseAdmin

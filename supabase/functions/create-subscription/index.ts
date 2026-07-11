@@ -121,9 +121,10 @@ serve(async (req) => {
         transaction_amount: Number(plan.price),
         currency_id: 'UYU',
       },
-        payer_email: payerEmail,
+      payer_email: payerEmail,
       external_reference: externalReference,
       back_url: backUrl,
+      notification_url: 'https://tvwtwnltgakbvgldiocb.supabase.co/functions/v1/mp-webhook',
     }
 
     console.error('MP request body:', JSON.stringify(mpBody, null, 2))
@@ -152,10 +153,11 @@ serve(async (req) => {
       })
     }
 
-    // --- 7. Return init_point and external_reference ---
+    // --- 7. Return init_point, preapproval_id, and external_reference ---
     return new Response(
       JSON.stringify({
         init_point: mpData.init_point,
+        preapproval_id: mpData.id,
         external_reference: externalReference,
       }),
       {

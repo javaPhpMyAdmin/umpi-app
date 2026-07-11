@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Star, Settings, Crown, LogOut, User, Plus, ChevronRight, Edit3, Trash2 } from 'lucide-react-native';
@@ -12,7 +12,9 @@ import ActionSheet from '@/components/ActionSheet';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import { showError, showSuccess } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { RefreshCw } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +25,16 @@ export default function ProfileScreen() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteMutation = useDeleteListing();
+  const [syncing, setSyncing] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // Refresh profile every time this screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (user) refreshProfile();
+    }, [user]),
+  );
 
   const handleCardAction = (id: string) => {
     setSelectedListingId(id);
@@ -60,47 +72,72 @@ export default function ProfileScreen() {
     setSelectedListingId(null);
   };
 
+  const handleSyncSubscription = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'sync-subscription',
+        { method: 'POST' },
+      );
+      if (error) throw error;
+      if (data?.synced) {
+        showSuccess('Suscripción actualizada', 'Los datos se sincronizaron con MercadoPago');
+      } else if (data?.reason) {
+        showError('Sin cambios', data.reason);
+      } else {
+        showSuccess('Verificada', 'Tu suscripción está al día');
+      }
+      await refreshProfile();
+    } catch (err) {
+      showError('Error', err instanceof Error ? err.message : 'Error al sincronizar');
+    } finally {
+      setSyncing(false);
+    }
+  };
   const handleCancelSubscription = () => {
-    Alert.alert(
-      'Cancelar suscripción',
-      '¿Estás seguro? Tu suscripción se cancelará y perderás los beneficios de visibilidad.',
-      [
-        { text: 'Seguir', style: 'cancel' },
-        {
-          text: 'Cancelar suscripción',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase.functions.invoke('cancel-subscription', {
-                method: 'POST',
-              });
-              if (error) throw new Error('Error al cancelar en MercadoPago');
-              showSuccess('Suscripción cancelada', 'Tu suscripción ha sido cancelada correctamente');
-              await refreshProfile();
-            } catch (err) {
-              showError('Error', err instanceof Error ? err.message : 'Error al cancelar en MercadoPago');
-            }
-          },
-        },
-      ],
-    );
+    setShowCancelModal(true);
   };
 
-  const getSubscriptionColor = (type: string) => {
-    if (type === 'premium') return Colors.premium;
-    if (type === 'profesional') return Colors.gold;
-    if (type === 'basico') return Colors.platinum;
-    if (type === 'pending') return Colors.warning;
-    return Colors.textMuted;
+  const confirmCancel = async () => {
+    setIsCancelling(true);
+    try {
+      const { data: cancelData, error: cancelError } = await supabase.functions.invoke(
+        'cancel-subscription',
+        { method: 'POST' },
+      );
+      if (cancelError) {
+        let msg = 'Error al cancelar en MercadoPago';
+        try {
+          const ctx = (cancelError as Record<string, unknown>)?.context;
+          if (ctx && typeof (ctx as Record<string, unknown>).json === 'function') {
+            const errorBody = await (ctx as Response).json();
+            msg = errorBody?.error || msg;
+            console.log('[cancel-subscription] full response:', JSON.stringify(errorBody));
+          }
+        } catch (_) { /* ignore parse errors */ }
+        throw new Error(msg);
+      }
+      setShowCancelModal(false);
+      showSuccess('Suscripción cancelada', 'Tu suscripción ha sido cancelada correctamente');
+      await refreshProfile();
+    } catch (err) {
+      setShowCancelModal(false);
+      showError('Error', err instanceof Error ? err.message : 'Error al cancelar en MercadoPago');
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
-  const getSubscriptionLabel = (type: string) => {
-    if (type === 'premium') return 'Premium';
-    if (type === 'profesional') return 'Profesional';
-    if (type === 'basico') return 'B\u00e1sico';
-    if (type === 'pending') return 'Pendiente';
-    return 'Sin plan';
+  const subscriptionLabels: Record<string, string> = {
+    plata: 'Plata',
+    oro: 'Oro',
+    premium: 'Premium',
+    profesional: 'Profesional',
+    basico: 'B\u00e1sico',
+    pending: 'Pendiente',
   };
+
+  const getSubscriptionLabel = (type: string) => subscriptionLabels[type] || 'Sin plan';
 
   if (!user) {
     return (
@@ -158,7 +195,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: getSubscriptionColor(profile?.subscription_type || 'none') }]}>
+            <Text style={styles.statValue}>
               {getSubscriptionLabel(profile?.subscription_type || 'none')}
             </Text>
             <Text style={styles.statLabel}>Suscripcion</Text>
@@ -207,9 +244,20 @@ export default function ProfileScreen() {
               </View>
 
               {!isExpired && (
-                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelSubscription}>
-                  <Text style={styles.cancelBtnText}>Cancelar suscripción</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={styles.syncBtn}
+                    onPress={handleSyncSubscription}
+                    disabled={syncing}>
+                    <RefreshCw size={14} color={Colors.primary} />
+                    <Text style={styles.syncBtnText}>
+                      {syncing ? 'Verificando...' : 'Verificar suscripción'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelSubscription}>
+                    <Text style={styles.cancelBtnText}>Cancelar suscripción</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </>
           );
@@ -293,6 +341,32 @@ export default function ProfileScreen() {
         secondaryLabel="Cancelar"
         destructiveSecondary
       />
+
+      <Modal visible={showCancelModal} transparent animationType="fade">
+        <Pressable style={styles.cancelModalOverlay} onPress={() => !isCancelling && setShowCancelModal(false)}>
+          <Pressable style={styles.cancelModalContent} onPress={() => {}}>
+            {isCancelling ? (
+              <>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.cancelModalLoadingText}>Cancelando suscripción...</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.cancelModalTitle}>Cancelar suscripción</Text>
+                <Text style={styles.cancelModalMessage}>
+                  ¿Estás seguro? Tu suscripción se cancelará y perderás los beneficios de visibilidad.
+                </Text>
+                <TouchableOpacity style={styles.cancelModalConfirmBtn} onPress={confirmCancel}>
+                  <Text style={styles.cancelModalConfirmText}>Cancelar suscripción</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelModalBackBtn} onPress={() => setShowCancelModal(false)}>
+                  <Text style={styles.cancelModalBackText}>Volver</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -341,6 +415,17 @@ const styles = StyleSheet.create({
   subscriptionLabel: { fontSize: 13, color: Colors.textSecondary, flex: 1 },
   warningBadge: { fontSize: 12, fontWeight: '700', color: Colors.warning, marginLeft: 8 },
   expiredBadge: { fontSize: 12, fontWeight: '700', color: Colors.error, marginLeft: 8 },
-  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.error },
+  syncBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, padding: 10, borderRadius: 14, borderWidth: 1, borderColor: Colors.primary },
+  syncBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  cancelBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.error },
   cancelBtnText: { fontSize: 15, fontWeight: '700', color: Colors.error },
+  cancelModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  cancelModalContent: { backgroundColor: Colors.surface, borderRadius: 20, padding: 28, width: '100%', maxWidth: 340, alignItems: 'center' },
+  cancelModalTitle: { fontSize: 20, fontWeight: '700', color: Colors.text, textAlign: 'center', marginBottom: 12 },
+  cancelModalMessage: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  cancelModalConfirmBtn: { backgroundColor: Colors.error, paddingVertical: 14, borderRadius: 14, alignItems: 'center', width: '100%', marginBottom: 10 },
+  cancelModalConfirmText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
+  cancelModalBackBtn: { backgroundColor: Colors.borderLight, paddingVertical: 12, borderRadius: 14, alignItems: 'center', width: '100%' },
+  cancelModalBackText: { color: Colors.textSecondary, fontWeight: '600', fontSize: 15 },
+  cancelModalLoadingText: { fontSize: 15, color: Colors.textSecondary, marginTop: 16, textAlign: 'center' },
 });

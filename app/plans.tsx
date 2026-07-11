@@ -3,7 +3,6 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Star, Check, Crown, Zap } from 'lucide-react-native';
-import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Colors } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
@@ -91,59 +90,23 @@ export default function PlansScreen() {
         return;
       }
 
-      // Log the init_point so it shows in Metro dev server
-      console.warn('══════════════════════════════════════════');
-      console.warn('MP init_point:', efData.init_point);
-      console.warn('══════════════════════════════════════════');
-
-      // 3.4 Web fallback
+      // 3.4 Show link directly in a dismissible toast
       if (Platform.OS === 'web') {
         window.location.href = efData.init_point;
         return;
       }
 
-      // 3.5 Open MP page via expo-web-browser
-      const result = await WebBrowser.openAuthSessionAsync(efData.init_point, redirectUrl);
+      console.warn('\n══════════════════════════════════════════');
+      console.warn('🔗 LINK DE PAGO — copialo y abrilo en incógnito:');
+      console.warn(efData.init_point);
+      console.warn('📋 PREAPPROVAL_ID:', efData.preapproval_id);
+      console.warn('══════════════════════════════════════════\n');
 
-      // 3.6 Browser closed without completing the flow
-      if (result.type === 'cancel') {
-        showInfo('Pago cancelado', 'Podés retomar cuando quieras desde Planes');
-        setSelectedPlanId(null);
-        return;
-      }
+      showInfo('Link generado', 'Revisá la terminal, copiá el link y abrilo en incógnito');
 
-      // 3.7 Check for pending status from back_url
-      if (result.type === 'success' && result.url?.includes('/pending')) {
-        showInfo('Pago pendiente de aprobación', 'Se activará automáticamente en unos minutos');
-        setSelectedPlanId(null);
-        return;
-      }
-
-      // 3.8 Poll subscription status: 3s × 5 attempts
-      let attempts = 0;
-      const pollInterval = setInterval(async () => {
-        attempts++;
-
-        const { data: subData } = await supabase
-          .from('subscriptions')
-          .select('status')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (subData?.status === 'active') {
-          clearInterval(pollInterval);
-          setSelectedPlanId(null);
-          showSuccess('Suscripción activada', 'Ya podés destacar tus avisos');
-          router.push('/(tabs)/profile');
-          return;
-        }
-
-        if (attempts >= 5) {
-          clearInterval(pollInterval);
-          setSelectedPlanId(null);
-          showError('Tiempo de espera agotado', 'La suscripción se activará en breve');
-        }
-      }, 3000);
+      // 3.6 Reset loading state
+      setSelectedPlanId(null);
+      return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error inesperado';
       showError('Error al crear la suscripción', msg);
