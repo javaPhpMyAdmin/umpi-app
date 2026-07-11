@@ -92,7 +92,9 @@ export default function PlansScreen() {
       }
 
       // Log the init_point so it shows in Metro dev server
-      console.log('MercadoPago init_point:', efData.init_point);
+      console.warn('══════════════════════════════════════════');
+      console.warn('MP init_point:', efData.init_point);
+      console.warn('══════════════════════════════════════════');
 
       // 3.4 Web fallback
       if (Platform.OS === 'web') {
