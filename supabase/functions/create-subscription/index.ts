@@ -45,13 +45,16 @@ serve(async (req) => {
     }
 
     // --- 2. Parse request body ---
-    const { plan_id: planId } = await req.json()
+    const { plan_id: planId, payer_email: overrideEmail } = await req.json()
     if (!planId) {
       return new Response(JSON.stringify({ error: 'plan_id is required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       })
     }
+
+    // Allow overriding payer_email for testing (e.g. with MP test buyer email)
+    const payerEmail = overrideEmail || userEmail
 
     // --- 3. Check if user already has an active subscription ---
     const { data: existingSub } = await supabaseAdmin
@@ -98,36 +101,49 @@ serve(async (req) => {
       })
     }
 
+    // Calculate dates for auto_recurring (required by current MP API)
+    const startDate = new Date().toISOString()
+    const endDate = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString() // +2 years
+
+    // Use a short UUID as idempotency key (MP max 64 chars)
+    const idempotencyKey = crypto.randomUUID()
+
+    const mpBody = {
+      reason: `Umpi - ${plan.name}`,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: 'months',
+        start_date: startDate,
+        end_date: endDate,
+        transaction_amount: Number(plan.price),
+        currency_id: 'UYU',
+      },
+        payer_email: payerEmail,
+      external_reference: externalReference,
+      back_url: 'https://umpi.app/subscription/success',
+    }
+
+    console.error('MP request body:', JSON.stringify(mpBody, null, 2))
+    console.error('MP idempotency key length:', idempotencyKey.length)
+
     const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${mpAccessToken}`,
         'Content-Type': 'application/json',
-        'X-Idempotency-Key': externalReference,
+        'X-Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify({
-        reason: `Umpi - ${plan.name}`,
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: 'months',
-          transaction_amount: plan.price,
-          currency_id: 'ARS',
-        },
-        payer_email: userEmail,
-        external_reference: externalReference,
-        back_url: {
-          success: 'https://umpi.app/subscription/success',
-          pending: 'https://umpi.app/subscription/pending',
-          failure: 'https://umpi.app/subscription/failure',
-        },
-      }),
+      body: JSON.stringify(mpBody),
     })
 
     const mpData = await mpResponse.json()
 
     if (!mpResponse.ok) {
-      console.error('MP API error:', mpData)
-      return new Response(JSON.stringify({ error: 'MercadoPago API error', details: mpData }), {
+      console.error('MP API error full:', JSON.stringify({ status: mpResponse.status, body: mpData, headers: Object.fromEntries(mpResponse.headers.entries()) }, null, 2))
+      return new Response(JSON.stringify({
+        error: 'MercadoPago API error',
+        details: mpData,
+      }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       })

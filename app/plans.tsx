@@ -48,20 +48,37 @@ export default function PlansScreen() {
       // 3.3 Call create-subscription Edge Function
       const { data: efData, error: efError } = await supabase.functions.invoke(
         'create-subscription',
+        // TODO: revertir payer_email fijo antes de producción
         { body: { plan_id: planId } },
       );
 
       if (efError || !efData?.init_point) {
-        const msg =
-          efError instanceof Error
-            ? efError.message
-            : typeof efError === 'object' && efError !== null && 'message' in efError
-              ? String((efError as { message: unknown }).message)
-              : 'Error al crear la suscripción';
+        // Extract the actual error body from the Response object (efError.context)
+        let msg = 'Error inesperado al crear la suscripción';
+        try {
+          const ctx = (efError as Record<string, unknown>)?.context;
+          if (ctx && typeof (ctx as Record<string, unknown>).json === 'function') {
+            const errorBody = await (ctx as Response).json();
+            console.error('create-subscription error body:', JSON.stringify(errorBody, null, 2));
+            msg = errorBody?.error ?? JSON.stringify(errorBody);
+            if (errorBody?.details) {
+              msg += ` — ${JSON.stringify(errorBody.details)}`;
+            }
+          } else if (ctx && typeof (ctx as Record<string, unknown>).text === 'text') {
+            console.error('create-subscription error text:', await (ctx as Response).text());
+            msg = await (ctx as Response).text();
+          }
+        } catch (parseErr) {
+          console.error('create-subscription parse error:', parseErr);
+          msg = 'Error al crear la suscripción';
+        }
         showError('Error al crear la suscripción', msg);
         setSelectedPlanId(null);
         return;
       }
+
+      // Log the init_point so it shows in Metro dev server
+      console.log('MercadoPago init_point:', efData.init_point);
 
       // 3.4 Web fallback
       if (Platform.OS === 'web') {
