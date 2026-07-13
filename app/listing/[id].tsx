@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Listing, Profile } from '@/types';
 import ReviewModal from '@/components/ReviewModal';
+import ReviewsListModal from '@/components/ReviewsListModal';
+import { UserAvatar } from '@/components/UserAvatar';
 import { showError, showSuccess } from '@/lib/toast';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import ActionSheet from '@/components/ActionSheet';
@@ -35,6 +37,7 @@ export default function ListingDetailScreen() {
   const [reviewCheckLoading, setReviewCheckLoading] = useState(true);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -131,9 +134,10 @@ export default function ListingDetailScreen() {
   }, [showImageModal]);
 
   const handleSubmitReview = async (rating: number, comment: string) => {
-    if (!user || !hasConversation) return;
+    if (!user || !hasConversation || !listing) return;
     const { error } = await supabase.from('reviews').insert({
       conversation_id: hasConversation,
+      listing_id: listing.id,
       reviewer_id: user.id,
       rating,
       comment: comment || null,
@@ -144,6 +148,9 @@ export default function ListingDetailScreen() {
       }
       throw new Error('Error al enviar la calificación. Intentalo de nuevo.');
     }
+    setHasReviewed(true);
+    setShowModal(false);
+    showSuccess('Calificación enviada');
   };
 
   const handleEdit = () => {
@@ -193,11 +200,14 @@ export default function ListingDetailScreen() {
         conv_id: existingConv.id,
         user_id: user.id,
       });
-      router.push(`/chat/${existingConv.id}`);
+      const name = encodeURIComponent(seller?.full_name || 'Usuario');
+      const avatar = seller?.avatar_url ? encodeURIComponent(seller.avatar_url) : '';
+      router.push(`/chat/${existingConv.id}?otherName=${name}&otherUserId=${listing.user_id}&otherAvatar=${avatar}`);
     } else {
       // No se crea la conversación aún — se crea al enviar el primer mensaje
       const name = encodeURIComponent(seller?.full_name || 'Usuario');
-      router.push(`/chat/new?listingId=${listing.id}&otherUserId=${listing.user_id}&otherName=${name}`);
+      const avatar = seller?.avatar_url ? encodeURIComponent(seller.avatar_url) : '';
+      router.push(`/chat/new?listingId=${listing.id}&otherUserId=${listing.user_id}&otherName=${name}&otherAvatar=${avatar}`);
     }
   };
 
@@ -271,6 +281,7 @@ export default function ListingDetailScreen() {
             <View style={styles.metaItem}>
               <Star size={14} color={Colors.star} fill={Colors.star} />
               <Text style={styles.metaText}>{listing.rating}</Text>
+              <Text style={styles.metaText}>({listing.reviews_count})</Text>
             </View>
             <View style={styles.metaItem}>
               <Calendar size={14} color={Colors.textMuted} />
@@ -283,18 +294,23 @@ export default function ListingDetailScreen() {
             <Text style={styles.description}>{listing.description || 'Sin descripcion'}</Text>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Vendedor</Text>
-            <View style={styles.sellerRow}>
-              <View style={styles.sellerAvatar}>
-                <Text style={styles.sellerAvatarText}>{(seller?.full_name || 'U')[0]}</Text>
-              </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Vendedor</Text>
+              <View style={styles.sellerRow}>
+                <UserAvatar url={seller?.avatar_url} name={seller?.full_name} size={44} />
               <View style={styles.sellerInfo}>
                 <Text style={styles.sellerName}>{seller?.full_name || 'Usuario'}</Text>
                 <View style={styles.sellerMeta}>
                   <Star size={12} color={Colors.star} fill={Colors.star} />
                   <Text style={styles.sellerMetaText}>{seller?.rating?.toFixed(1) || '5.0'}</Text>
-                  <Text style={styles.sellerMetaText}>· {seller?.reviews_count || 0} calificaciones</Text>
+                  <TouchableOpacity
+                    style={styles.reviewsLink}
+                    onPress={() => setShowReviewsModal(true)}
+                  >
+                    <Text style={styles.reviewsLinkText}>
+                      · Ver {listing.reviews_count || 0} {listing.reviews_count === 1 ? 'calificación' : 'calificaciones'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
                 <Text style={styles.sellerMemberSince}>
                   Miembro desde {seller?.created_at ? new Date(seller.created_at).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : 'desconocido'}
@@ -321,6 +337,12 @@ export default function ListingDetailScreen() {
         onClose={() => setShowModal(false)}
         onSubmit={handleSubmitReview}
         conversationId={hasConversation || ''}
+      />
+
+      <ReviewsListModal
+        visible={showReviewsModal}
+        onClose={() => setShowReviewsModal(false)}
+        listingId={listing.id}
       />
 
       <BottomSheetDialog
@@ -432,13 +454,13 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.text, marginBottom: 8 },
   description: { fontSize: 14, color: Colors.textSecondary, lineHeight: 22 },
   sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sellerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  sellerAvatarText: { fontSize: 16, fontWeight: '800', color: Colors.white },
   sellerInfo: { flex: 1 },
   sellerName: { fontSize: 15, fontWeight: '700', color: Colors.text },
   sellerMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   sellerMetaText: { fontSize: 12, color: Colors.textMuted },
   sellerMemberSince: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+  reviewsLink: { paddingVertical: 2 },
+  reviewsLinkText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
   reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.secondary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, marginTop: 12 },
   reviewBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
   reviewedText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', marginTop: 12, textAlign: 'center' },

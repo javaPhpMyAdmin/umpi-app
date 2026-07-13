@@ -167,9 +167,9 @@ export default function ExploreScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
         <View style={styles.headerRow}>
-          <Compass size={24} color={Colors.white} />
+          <Compass size={32} color={Colors.white} />
           <Text style={styles.headerTitle}>Explorar</Text>
         </View>
         <Text style={styles.headerSubtitle}>Descubre miles de avisos</Text>
@@ -342,18 +342,18 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 34,
     fontWeight: '800',
     color: Colors.white,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.75)',
-    marginTop: 4,
+    marginTop: 6,
   },
   searchRow: {
     flexDirection: 'row',

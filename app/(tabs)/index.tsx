@@ -14,11 +14,14 @@ import {
   Clock,
   ChevronRight,
   Store,
+  Bell,
 } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/colors';
 import { useListings } from '@/hooks/useListings';
 import { useCategories } from '@/hooks/useCategories';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotificationCount } from '@/hooks/useNotifications';
 import { ListingCard } from '@/components/ListingCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { SkeletonCard } from '@/components/SkeletonCard';
@@ -26,6 +29,8 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
+  const { data: unreadCount = 0 } = useNotificationCount(user?.id);
 
   const { data: listings = [], isLoading: loadingListings } = useListings();
   const { data: categories = [] } = useCategories();
@@ -59,10 +64,27 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
       {/* marginTop desplaza el header debajo de la status bar; paddingTop mantiene el área naranja igual que antes */}
-      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
-        <View style={styles.logoRow}>
-          <Store size={26} color={Colors.white} style={styles.storeIcon} />
-          <Text style={styles.logo}>Umpi</Text>
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.logoRow}>
+            <Store size={32} color={Colors.white} style={styles.storeIcon} />
+            <Text style={styles.logo}>Umpi</Text>
+          </View>
+          {user && (
+            <TouchableOpacity
+              style={styles.bellButton}
+              onPress={() => router.push('/notifications')}
+            >
+              <Bell size={26} color={Colors.white} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={styles.tagline}>
           Todo lo que buscas<Text style={styles.taglineDot}> · </Text>cerca tuyo
@@ -219,8 +241,13 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   logo: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '800',
     color: Colors.white,
     letterSpacing: -1,
@@ -229,14 +256,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  bellButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: Colors.white,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   storeIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   tagline: {
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: '600',
     color: 'rgba(255,255,255,0.75)',
-    marginTop: 4,
+    marginTop: 6,
     marginLeft: 0,
   },
   taglineDot: {
@@ -246,6 +294,7 @@ const styles = StyleSheet.create({
   quickSearch: {
     paddingHorizontal: 16,
     marginTop: 16,
+    marginBottom: 16,
   },
   quickSearchLabel: {
     fontSize: 13,

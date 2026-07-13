@@ -46,9 +46,9 @@ export default function MessagesScreen() {
     return (
       <View style={styles.container}>
         <StatusBar style="dark" />
-        <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
+        <View style={[styles.header, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
           <View style={styles.headerRow}>
-            <MessageCircle size={24} color={Colors.white} />
+            <MessageCircle size={32} color={Colors.white} />
             <Text style={styles.headerTitle}>Mensajes</Text>
           </View>
           <Text style={styles.headerSubtitle}>De la charla al trato</Text>
@@ -67,13 +67,13 @@ export default function MessagesScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
-        <View style={styles.headerRow}>
-          <MessageCircle size={24} color={Colors.white} />
-          <Text style={styles.headerTitle}>Mensajes</Text>
+        <View style={[styles.header, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
+          <View style={styles.headerRow}>
+            <MessageCircle size={32} color={Colors.white} />
+            <Text style={styles.headerTitle}>Mensajes</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>De la charla al trato</Text>
         </View>
-        <Text style={styles.headerSubtitle}>De la charla al trato</Text>
-      </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}>
         {isLoading ? (
@@ -84,8 +84,10 @@ export default function MessagesScreen() {
             <Text style={styles.emptySubtext}>Contacta a un vendedor desde cualquier aviso</Text>
           </View>
         ) : (
-        conversations.map(conv => (
-          <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}?otherName=${encodeURIComponent(conv.other_user?.full_name || 'Usuario')}`)} onLongPress={() => setArchiveTarget({ id: conv.id, name: conv.other_user?.full_name || 'Usuario' })} activeOpacity={0.7}>
+          conversations.map(conv => {
+            const otherUserId = conv.user1_id === user?.id ? conv.user2_id : conv.user1_id;
+            return (
+            <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}?otherName=${encodeURIComponent(conv.other_user?.full_name || 'Usuario')}&otherUserId=${otherUserId}&otherAvatar=${conv.other_user?.avatar_url ? encodeURIComponent(conv.other_user.avatar_url) : ''}`)} onLongPress={() => setArchiveTarget({ id: conv.id, name: conv.other_user?.full_name || 'Usuario' })} activeOpacity={0.7}>
             <UserAvatar url={conv.other_user?.avatar_url} name={conv.other_user?.full_name} size={44} />
             <View style={styles.convInfo}>
               <View style={styles.convTop}>
@@ -105,7 +107,9 @@ export default function MessagesScreen() {
             </View>
             <ArrowRight size={18} color={Colors.textMuted} />
           </TouchableOpacity>
-        )))}
+            );
+          })
+        )}
       </ScrollView>
 
       {/* Modal de confirmación para eliminar conversación */}
@@ -139,9 +143,9 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   header: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: Colors.white },
-  headerSubtitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerTitle: { fontSize: 34, fontWeight: '800', color: Colors.white },
+  headerSubtitle: { fontSize: 17, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 6 },
   scroll: { padding: 16, gap: 8 },
   empty: { padding: 40, alignItems: 'center' },
   emptyText: { fontSize: 16, fontWeight: '600', color: Colors.text },

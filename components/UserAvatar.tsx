@@ -6,9 +6,10 @@ interface UserAvatarProps {
   url: string | null | undefined;
   name: string | null | undefined;
   size?: number;
+  backgroundColor?: string;
 }
 
-export function UserAvatar({ url, name, size = 44 }: UserAvatarProps) {
+export function UserAvatar({ url, name, size = 44, backgroundColor }: UserAvatarProps) {
   const [failed, setFailed] = useState(false);
   const initial = (name || '?')[0].toUpperCase();
 
@@ -16,7 +17,7 @@ export function UserAvatar({ url, name, size = 44 }: UserAvatarProps) {
     return (
       <Image
         source={{ uri: url }}
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: Colors.borderLight }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: backgroundColor || Colors.borderLight }}
         onError={() => setFailed(true)}
       />
     );
@@ -28,7 +29,7 @@ export function UserAvatar({ url, name, size = 44 }: UserAvatarProps) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: Colors.primary,
+        backgroundColor: backgroundColor || Colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
       }}

@@ -4,8 +4,6 @@ import { StyleSheet, View, Platform, Animated, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Search, PlusCircle, MessageCircle, User } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUnreadCount } from '@/hooks/useUnreadCount';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 function AnimatedTabIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
@@ -89,7 +87,6 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
         const iconColor = focused ? Colors.primary : Colors.textSecondary;
         const labelColor = focused ? Colors.primaryDark : Colors.textSecondary;
-        const badge = options.tabBarBadge;
 
         return (
           <Pressable
@@ -107,13 +104,6 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                 : null
               }
             </View>
-            {badge ? (
-              <View style={styles.badge}>
-                <View style={styles.badgeInner}>
-                  <Animated.Text style={styles.badgeText}>{badge}</Animated.Text>
-                </View>
-              </View>
-            ) : null}
           </Pressable>
         );
       })}
@@ -122,9 +112,6 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
-  const { user } = useAuth();
-  const { data: unreadCount = 0 } = useUnreadCount(user?.id);
-
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -180,8 +167,6 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Mensajes',
-          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: Colors.primary, fontSize: 11, fontWeight: '800', minWidth: 18, height: 18, lineHeight: 18 },
           tabBarIcon: ({ size, color, focused }) => (
             <AnimatedTabIcon focused={focused}>
               <MessageCircle size={size} color={color} strokeWidth={focused ? 2.5 : 2} />
@@ -242,25 +227,4 @@ const styles = StyleSheet.create({
   tabBgFocused: {
     backgroundColor: 'rgba(255, 107, 53, 0.35)',
   },
-  badge: {
-    position: 'absolute',
-    top: 2,
-    right: '15%',
-    zIndex: 10,
-  },
-  badgeInner: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: Colors.white,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-
 });

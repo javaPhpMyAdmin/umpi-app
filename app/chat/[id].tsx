@@ -17,7 +17,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id, listingId, otherUserId, otherName: otherNameParam } = useLocalSearchParams();
+  const { id, listingId, otherUserId, otherName: otherNameParam, otherAvatar: otherAvatarParam } = useLocalSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [input, setInput] = useState('');
@@ -74,6 +74,10 @@ export default function ChatScreen() {
 
   const headerName = otherProfile?.full_name
     || decodeURIComponent((otherNameParam as string) || 'Chat');
+
+  // Avatar: usar el perfil de los mensajes si existe, o el pasado por URL para chats nuevos
+  const headerAvatarUrl = otherProfile?.avatar_url
+    || (otherAvatarParam as string) || null;
 
   // Marcar como leído al entrar a la conversación (una sola vez)
   useEffect(() => {
@@ -161,7 +165,7 @@ export default function ChatScreen() {
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conv.id);
 
-      router.replace(`/chat/${conv.id}?otherName=${encodeURIComponent(otherNameParam as string || 'Usuario')}&otherUserId=${otherUserId}`);
+      router.replace(`/chat/${conv.id}?otherName=${encodeURIComponent(otherNameParam as string || 'Usuario')}&otherUserId=${otherUserId}&otherAvatar=${otherAvatarParam ? encodeURIComponent(otherAvatarParam as string) : ''}`);
     } else if (conversationId) {
       sendMutation.mutate({ conversationId, content, senderId: user.id });
     }
@@ -215,15 +219,26 @@ export default function ChatScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
       {/* Header fuera del KeyboardAvoidingView — siempre estático */}
-      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
+      <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12, paddingBottom: 28, paddingHorizontal: 20 }]}>
         <TouchableOpacity onPress={() => router.back()}>
           <ArrowLeft size={24} color={Colors.white} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <UserAvatar url={otherProfile?.avatar_url} name={headerName} size={32} />
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {isNew ? headerName : (isLoading && !headerName ? 'Cargando usuario...' : headerName)}
-          </Text>
+          {isLoading && !otherProfile ? (
+            <SkeletonHeader />
+          ) : (
+            <>
+              <UserAvatar
+                url={headerAvatarUrl}
+                name={headerName}
+                size={32}
+                backgroundColor="rgba(255,255,255,0.25)"
+              />
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {isNew ? headerName : (isLoading && !headerName ? 'Cargando usuario...' : headerName)}
+              </Text>
+            </>
+          )}
         </View>
         <View style={{ width: 24 }} />
       </View>
@@ -293,12 +308,37 @@ function SkeletonBubble({ align }: { align: 'left' | 'right' }) {
   );
 }
 
+function SkeletonHeader() {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity]);
+
+  return (
+    <View style={styles.skeletonHeaderRow}>
+      <Animated.View style={[styles.skeletonAvatar, { opacity }]} />
+      <Animated.View style={[styles.skeletonHeaderTitle, { opacity }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   keyboardArea: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.white, flexShrink: 1 },
+  skeletonHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  skeletonAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.3)' },
+  skeletonHeaderTitle: { width: 120, height: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)' },
   listingHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   listingImage: { width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.borderLight },
   listingInfo: { flex: 1, gap: 4 },

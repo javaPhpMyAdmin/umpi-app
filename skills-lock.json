@@ -13,6 +13,12 @@
       "skillPath": "plugins/expo/skills/expo-deployment/SKILL.md",
       "computedHash": "f70cd561a2d726f329f45eb0ad262f298c57676a80d7ecf288dc3919a6a7a50d"
     },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "4eabc66183767153e404b39d1b839b1c37f2d82d86f0a0d7e880a579d8d62336"
+    },
     "supabase-postgres-best-practices": {
       "source": "supabase/agent-skills",
       "sourceType": "github",

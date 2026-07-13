@@ -293,9 +293,9 @@ export default function PublishScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <View style={[styles.emptyHeader, { marginTop: insets.top, paddingTop: insets.top + 12 }]}>
+        <View style={[styles.emptyHeader, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
           <View style={styles.headerRow}>
-            <Sparkles size={24} color={Colors.white} />
+            <Sparkles size={32} color={Colors.white} />
             <Text style={styles.emptyHeaderTitle}>Publicar</Text>
           </View>
           <Text style={styles.headerSubtitle}>¡Dale, animate a publicar!</Text>
@@ -464,9 +464,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
 
   emptyHeader: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  emptyHeaderTitle: { fontSize: 26, fontWeight: '800', color: Colors.white },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerSubtitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 4 },
+  emptyHeaderTitle: { fontSize: 34, fontWeight: '800', color: Colors.white },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerSubtitle: { fontSize: 17, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 6 },
   emptyAuth: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 },
   emptyAuthTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, textAlign: 'center' },
   emptyAuthSubtitle: { fontSize: 15, fontWeight: '600', color: '#4B5563', textAlign: 'center', lineHeight: 22, paddingHorizontal: 24 },
