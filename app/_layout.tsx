@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -19,14 +19,41 @@ const queryClient = new QueryClient({
   },
 });
 
-/** Syncs unread messages as notifications when user authenticates */
+/** Syncs unread messages + realtime subscription for notification badge */
 function SyncMessageNotifications() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
-    supabase.rpc('sync_message_notifications', { p_user_id: user.id });
-  }, [user?.id]);
+
+    // Sync inicial (mensajes no leídos existentes antes de los triggers)
+    supabase.rpc('sync_message_notifications', { p_user_id: user.id })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+      });
+
+    // Realtime: actualizar badge al instante cuando cambia una notificación
+    channelRef.current = supabase
+      .channel(`notifications-${user.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
+      })
+      .subscribe();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [user?.id, queryClient]);
 
   return null;
 }

@@ -18,9 +18,6 @@ export function useNotificationCount(userId: string | undefined) {
     queryFn: async () => {
       if (!userId) return 0;
 
-      // Sync unread messages as notifications before counting
-      await supabase.rpc('sync_message_notifications', { p_user_id: userId });
-
       const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
@@ -31,7 +28,6 @@ export function useNotificationCount(userId: string | undefined) {
     },
     enabled: !!userId,
     staleTime: 30_000,
-    refetchInterval: 30_000,
   });
 }
 

@@ -61,7 +61,7 @@ export default function ListingDetailScreen() {
 
     const { data } = await supabase
       .from('listings')
-      .select('*, category:category_id(*)')
+      .select('*, category:category_id(*), city:city_id(*)')
       .eq('id', id as string)
       .maybeSingle();
     if (data) {
@@ -272,10 +272,10 @@ export default function ListingDetailScreen() {
           </Text>
 
           <View style={styles.metaRow}>
-            {listing.location && (
+            {(listing.city?.name || listing.location) && (
               <View style={styles.metaItem}>
                 <MapPin size={14} color={Colors.textMuted} />
-                <Text style={styles.metaText}>{listing.location}</Text>
+                <Text style={styles.metaText}>{listing.city?.name || listing.location}</Text>
               </View>
             )}
             <View style={styles.metaItem}>
@@ -399,7 +399,12 @@ export default function ListingDetailScreen() {
               scrollEventThrottle={16}
             >
               {allImages.map((uri, i) => (
-                <ZoomableImage key={`modal-${uri}-${i}`} uri={uri} size={modalImageSize} />
+                <ZoomableImage
+                  key={`modal-${uri}-${i}`}
+                  uri={uri}
+                  size={modalImageSize}
+                  isActive={i === currentImage}
+                />
               ))}
             </GHSscrollView>
 

@@ -9,7 +9,7 @@ export function useListings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('listings')
-        .select('*, category:category_id(*)')
+        .select('*, category:category_id(*), city:city_id(*)')
         .eq('status', 'active')
         .order('listing_priority', { ascending: false })
         .order('created_at', { ascending: false })
@@ -28,7 +28,7 @@ export function useMyListings(userId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('listings')
-        .select('*, category:category_id(*)')
+        .select('*, category:category_id(*), city:city_id(*)')
         .eq('user_id', userId!)
         .eq('status', 'active')
         .order('created_at', { ascending: false });

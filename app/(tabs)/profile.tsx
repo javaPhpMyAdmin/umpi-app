@@ -21,7 +21,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, profile, signOut, refreshProfile } = useAuth();
-  const { data: myListings = [], isLoading } = useMyListings(user?.id);
+  const { data: myListings = [], isLoading, refetch: refetchMyListings } = useMyListings(user?.id);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -30,11 +30,14 @@ export default function ProfileScreen() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // Refresh profile every time this screen is focused
+  // Refresh profile and listings every time this screen is focused
   useFocusEffect(
     useCallback(() => {
-      if (user) refreshProfile();
-    }, [user]),
+      if (user) {
+        refreshProfile();
+        refetchMyListings();
+      }
+    }, [user, refetchMyListings]),
   );
 
   const handleCardAction = (id: string) => {

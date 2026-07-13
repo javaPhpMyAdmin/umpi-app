@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,12 +6,13 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Bell, Star, Clock, MessageCircle, ArrowLeft } from 'lucide-react-native';
+import { Bell, Star, Clock, MessageCircle, ArrowLeft, Trash2 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -126,6 +127,7 @@ export default function NotificationsScreen() {
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
   const deleteNotification = useDeleteNotification();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const notifications = data?.pages.flat() ?? [];
 
@@ -143,18 +145,13 @@ export default function NotificationsScreen() {
   }
 
   function handleDelete(id: string, title: string) {
-    Alert.alert(
-      'Eliminar notificación',
-      `¿Estás seguro de que querés eliminar "${title}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => deleteNotification.mutate(id),
-        },
-      ],
-    );
+    setDeleteTarget({ id, title });
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    deleteNotification.mutate(deleteTarget.id);
+    setDeleteTarget(null);
   }
 
   function handleMarkAllAsRead() {
@@ -232,6 +229,29 @@ export default function NotificationsScreen() {
         onEndReachedThreshold={0.5}
         contentContainerStyle={styles.listContent}
       />
+
+      <Modal visible={!!deleteTarget} transparent animationType="fade" onRequestClose={() => setDeleteTarget(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setDeleteTarget(null)}>
+          <Pressable style={styles.modalContent}>
+            <View style={styles.modalIcon}>
+              <Trash2 size={24} color={Colors.error} />
+            </View>
+            <Text style={styles.modalTitle}>Eliminar notificación</Text>
+            <Text style={styles.modalText}>
+              ¿Estás seguro de que querés eliminar{'\n'}
+              <Text style={styles.modalBold}>"{deleteTarget?.title}"</Text>?
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setDeleteTarget(null)}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalDelete} onPress={confirmDelete}>
+                <Text style={styles.modalDeleteText}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -358,5 +378,76 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+  },
+  modalIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalBold: {
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: Colors.borderLight,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modalDelete: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+  },
+  modalDeleteText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.white,
   },
 });

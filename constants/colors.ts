@@ -24,13 +24,9 @@ export const Colors = {
 };
 
 export const CategoryColors = {
-  todos: '#FF6B35',
-  servicios: '#2A9D8F',
-  autos: '#2563EB',
-  propiedades: '#059669',
-  tecnologia: '#7C3AED',
-  restoranes: '#DC2626',
-  cafeterias: '#92400E',
-  bares: '#BE123C',
-  destacados: '#F59E0B',
+  'autos-motos': '#2563EB',
+  inmuebles: '#FF6B35',
+  'resto-bares-cafeterias': '#DC2626',
+  'celulares-accesorios': '#78716C',
+  'servicios-comercios': '#2A9D8F',
 };

@@ -1,3 +1,9 @@
+export interface City {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -22,6 +28,8 @@ export interface Listing {
   images: string[];
   is_featured: boolean;
   listing_priority: number;
+  city_id: string | null;
+  city?: City;
   status: string;
   rating: number;
   reviews_count: number;

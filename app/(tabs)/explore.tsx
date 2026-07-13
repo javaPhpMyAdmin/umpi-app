@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Search, SlidersHorizontal, X, Compass } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Listing } from '@/types';
@@ -76,12 +76,19 @@ export default function ExploreScreen() {
     fetchNextPage,
     hasNextPage,
     error,
+    refetch: refetchExplore,
   } = useListingsInfinite({
     query: debouncedQuery || undefined,
     categoryId: selectedCategoryId,
     filter: activeFilter,
     sortBy,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchExplore();
+    }, [refetchExplore]),
+  );
 
   const listings = useMemo(
     () => data?.pages.flatMap((p) => (p as { data: Listing[] }).data) ?? [],

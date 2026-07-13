@@ -9,7 +9,7 @@ export function useListing(id: string | null) {
       if (!id) return null;
       const { data, error } = await supabase
         .from('listings')
-        .select('*, category:category_id(*)')
+        .select('*, category:category_id(*), city:city_id(*)')
         .eq('id', id)
         .maybeSingle();
       if (error) throw error;

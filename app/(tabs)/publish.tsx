@@ -10,7 +10,7 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { uploadImage } from '@/lib/upload';
-import { Category } from '@/types';
+import { Category, City } from '@/types';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { showError, showSuccess } from '@/lib/toast';
 import { useListing } from '@/hooks/useListing';
@@ -25,25 +25,12 @@ export default function PublishScreen() {
   const editMode = !!edit;
   const { data: editListing, isLoading: editLoading } = useListing(edit || null);
 
-  // Fetch categorías reales desde Supabase
-  useEffect(() => {
-    supabase.from('categories')
-      .select('*')
-      .eq('is_active', true)
-      .neq('slug', 'todos')
-      .order('name')
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setCategories(data as Category[]);
-        }
-      });
-  }, []);
-
   const [categories, setCategories] = useState<Category[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [location, setLocation] = useState('');
+  const [cityId, setCityId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [priceType, setPriceType] = useState<'fixed' | 'contact'>('fixed');
   const [images, setImages] = useState<string[]>([]);
@@ -57,45 +44,41 @@ export default function PublishScreen() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [gpsDetected, setGpsDetected] = useState(false);
+  const [cities, setCities] = useState<City[]>([]);
+  const [showCustomLocation, setShowCustomLocation] = useState(false);
 
-  const LOCATIONS = useMemo(() => [
-    'Buenos Aires (CABA)',
-    'Buenos Aires (GBA)',
-    'Córdoba',
-    'Rosario',
-    'Mendoza',
-    'La Plata',
-    'Mar del Plata',
-    'Salta',
-    'Santa Fe',
-    'Corrientes',
-    'Neuquén',
-    'Posadas',
-    'San Miguel de Tucumán',
-    'San Juan',
-    'San Luis',
-    'Santiago del Estero',
-    'Formosa',
-    'La Rioja',
-    'Paraná',
-    'Resistencia',
-    'Río Gallegos',
-    'Ushuaia',
-    'Viedma',
-    'Otra',
-  ], []);
+  // Fetch categories and cities from Supabase
+  useEffect(() => {
+    supabase.from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setCategories(data as Category[]);
+        }
+      });
+    supabase.from('cities')
+      .select('*')
+      .order('name')
+      .then(({ data }) => {
+        if (data) setCities(data as City[]);
+      });
+  }, []);
 
   const resetForm = useCallback(() => {
     setTitle('');
     setDescription('');
     setPrice('');
     setLocation('');
+    setCityId(null);
     setSelectedCategory(null);
     setPriceType('fixed');
     setImages([]);
     setInitialImages([]);
     setPrefilled(false);
     setGpsDetected(false);
+    setShowCustomLocation(false);
     locationDetected.current = false;
   }, []);
 
@@ -120,7 +103,9 @@ export default function PublishScreen() {
       setTitle(editListing.title);
       setDescription(editListing.description || '');
       setPrice(editListing.price ? editListing.price.toString() : '');
+      setCityId(editListing.city_id || null);
       setLocation(editListing.location || '');
+      setShowCustomLocation(!editListing.city_id && !!editListing.location);
       setSelectedCategory(editListing.category_id);
       setPriceType((editListing.price_type as 'fixed' | 'contact') || 'fixed');
       const imgs = editListing.images || [];
@@ -139,7 +124,7 @@ export default function PublishScreen() {
 
   // Detectar ubicación automática — primero cache, después GPS con feedback
   useEffect(() => {
-    if (editMode || locationDetected.current || prefilled) return;
+    if (!user || editMode || locationDetected.current || prefilled) return;
 
     let cancelled = false;
     (async () => {
@@ -185,6 +170,14 @@ export default function PublishScreen() {
     })();
     return () => { cancelled = true; };
   }, [editMode, prefilled]);
+
+  const handleSelectOther = useCallback(() => {
+    setCityId(null);
+    setLocation('');
+    setShowCustomLocation(true);
+    setGpsDetected(false);
+    setShowLocationPicker(false);
+  }, []);
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -243,6 +236,7 @@ export default function PublishScreen() {
       price: priceType === 'fixed' && price ? parseFloat(price) : null,
       price_type: priceType,
       location,
+      city_id: cityId,
       category_id: isValidUUID.test(selectedCategory) ? selectedCategory : null,
       images: uploadedUrls,
     };
@@ -284,6 +278,7 @@ export default function PublishScreen() {
         setDescription('');
         setPrice('');
         setLocation('');
+        setCityId(null);
         setSelectedCategory(null);
         setImages([]);
       }
@@ -381,16 +376,32 @@ export default function PublishScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Ubicacion</Text>
-          <TouchableOpacity style={styles.inputRow} onPress={() => setShowLocationPicker(true)} activeOpacity={0.7}>
-            <MapPin size={18} color={gpsDetected ? Colors.error : location ? Colors.primary : Colors.textMuted} />
-            {locationLoading ? (
-              <Text style={[styles.input, styles.loadingText]}>Obteniendo ubicacion...</Text>
-            ) : (
-              <Text style={[styles.input, !location && styles.placeholder]}>
-                {location || 'Seleccionar ciudad...'}
-              </Text>
-            )}
-          </TouchableOpacity>
+          {showCustomLocation ? (
+            <View style={styles.inputRow}>
+              <MapPin size={18} color={Colors.textMuted} />
+              <TextInput
+                style={styles.input}
+                placeholder="Escribí tu ubicación..."
+                placeholderTextColor={Colors.textMuted}
+                value={location}
+                onChangeText={setLocation}
+              />
+              <TouchableOpacity onPress={() => { setShowCustomLocation(false); setLocation(''); setCityId(null); }}>
+                <X size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.inputRow} onPress={() => setShowLocationPicker(true)} activeOpacity={0.7}>
+              <MapPin size={18} color={gpsDetected ? Colors.error : location ? Colors.primary : Colors.textMuted} />
+              {locationLoading ? (
+                <Text style={[styles.input, styles.loadingText]}>Obteniendo ubicacion...</Text>
+              ) : (
+                <Text style={[styles.input, !location && styles.placeholder]}>
+                  {location || 'Seleccionar ciudad...'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -434,19 +445,32 @@ export default function PublishScreen() {
               </TouchableOpacity>
             </View>
             <FlatList
-              data={LOCATIONS}
-              keyExtractor={(item) => item}
+              data={cities}
+              keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.locationItem, location === item && styles.locationItemActive]}
+                  style={[styles.locationItem, location === item.name && styles.locationItemActive]}
                   onPress={() => {
-                    setLocation(item);
+                    setCityId(item.id);
+                    setLocation(item.name);
                     setGpsDetected(false);
                     setShowLocationPicker(false);
                   }}
                 >
-                  <Text style={[styles.locationItemText, location === item && styles.locationItemTextActive]}>
-                    {item}
+                  <Text style={[styles.locationItemText, location === item.name && styles.locationItemTextActive]}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              ListFooterComponent={() => (
+                <TouchableOpacity
+                  style={styles.locationItem}
+                  onPress={() => {
+                    handleSelectOther();
+                  }}
+                >
+                  <Text style={[styles.locationItemText, { color: Colors.primary, fontWeight: '600' }]}>
+                    Otra ciudad...
                   </Text>
                 </TouchableOpacity>
               )}

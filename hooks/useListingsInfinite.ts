@@ -20,7 +20,7 @@ export function useListingsInfinite(filters: ExploreFilters) {
       const offset = pageParam as number;
       let query = supabase
         .from('listings')
-        .select('*, category:category_id(*)')
+        .select('*, category:category_id(*), city:city_id(*)')
         .eq('status', 'active')
         .range(offset, offset + PAGE_SIZE - 1);
 

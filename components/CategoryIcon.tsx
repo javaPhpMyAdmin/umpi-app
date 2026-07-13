@@ -1,4 +1,4 @@
-import { Wrench, Car, Home, Laptop, UtensilsCrossed, Coffee, Wine, Star, Sparkles } from 'lucide-react-native';
+import { Wrench, Car, Home, Laptop, UtensilsCrossed, Coffee, Wine, Star, Sparkles, Smartphone, Store } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -11,6 +11,8 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   Coffee,
   Wine,
   Star,
+  Smartphone,
+  Store,
 };
 
 interface CategoryIconProps {

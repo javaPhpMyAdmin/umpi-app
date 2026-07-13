@@ -89,6 +89,7 @@ export default function ChatScreen() {
     }).then(() => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       queryClient.invalidateQueries({ queryKey: ['unreadCount'] });
+      queryClient.invalidateQueries({ queryKey: ['notificationCount'] });
     });
   }, [conversationId, user, queryClient]);
 

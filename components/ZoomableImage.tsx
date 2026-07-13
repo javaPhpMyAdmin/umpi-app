@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Image } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -8,9 +9,10 @@ import Animated, {
 interface Props {
   uri: string;
   size: number;
+  isActive: boolean;
 }
 
-export default function ZoomableImage({ uri, size }: Props) {
+export default function ZoomableImage({ uri, size, isActive }: Props) {
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -18,12 +20,27 @@ export default function ZoomableImage({ uri, size }: Props) {
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
+  // Reset al dejar de ser la imagen activa (swipe a otra foto)
+  useEffect(() => {
+    if (!isActive) {
+      scale.value = 1;
+      translateX.value = 0;
+      translateY.value = 0;
+    }
+  }, [isActive]);
+
   const pinchGesture = Gesture.Pinch()
     .onStart(() => {
       savedScale.value = scale.value;
     })
     .onUpdate((e) => {
-      scale.value = Math.max(1, Math.min(savedScale.value * e.scale, 5));
+      const newScale = Math.max(1, Math.min(savedScale.value * e.scale, 5));
+      scale.value = newScale;
+      // Al volver a escala original, resetear posición (sin bordes blancos)
+      if (newScale === 1) {
+        translateX.value = 0;
+        translateY.value = 0;
+      }
     });
 
   const panGesture = Gesture.Pan()

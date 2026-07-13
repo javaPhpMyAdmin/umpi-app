@@ -48,10 +48,10 @@ export function ListingCard({ listing, variant = 'featured', style, onEdit, onDe
         </Text>
         <Text style={styles.price}>{formatPrice(listing.price)}</Text>
         <View style={styles.metaRow}>
-          {listing.location && (
+          {(listing.city?.name || listing.location) && (
             <View style={styles.metaLocItem}>
               <MapPin size={12} color={Colors.textMuted} />
-              <Text style={styles.metaText} numberOfLines={1}>{listing.location}</Text>
+              <Text style={styles.metaText} numberOfLines={1}>{listing.city?.name || listing.location}</Text>
             </View>
           )}
           <View style={styles.metaRatingItem}>

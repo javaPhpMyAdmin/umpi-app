@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,7 +8,7 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import {
   Star,
   Clock,
@@ -32,8 +32,14 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { data: unreadCount = 0 } = useNotificationCount(user?.id);
 
-  const { data: listings = [], isLoading: loadingListings } = useListings();
+  const { data: listings = [], isLoading: loadingListings, refetch: refetchListings } = useListings();
   const { data: categories = [] } = useCategories();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchListings();
+    }, [refetchListings]),
+  );
 
   const featured = useMemo(
     () =>
