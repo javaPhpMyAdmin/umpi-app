@@ -3,7 +3,6 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Star, Check, Crown } from 'lucide-react-native';
-import * as Linking from 'expo-linking';
 import { Colors } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan } from '@/types';
@@ -52,12 +51,8 @@ export default function PlansScreen() {
       // 3.3 Call create-subscription Edge Function
       // TODO: revertir payer_email fijo antes de producción
       const testBuyerEmail = 'test_user_906191175949745667@testuser.com';
-      // MP requires http/https URLs for back_url — use a valid-looking URL
-      // openAuthSessionAsync will intercept the redirect regardless of whether the URL exists
-      const redirectUrl = Linking.createURL('subscription/result');
-      const mpBackUrl = Platform.OS === 'web'
-        ? redirectUrl
-        : 'https://umpi.app/subscription/result';
+      // MP requires http/https URLs for back_url — Supabase Edge Function redirects to app
+      const mpBackUrl = 'https://tvwtwnltgakbvgldiocb.supabase.co/functions/v1/subscription-result';
       const { data: efData, error: efError } = await supabase.functions.invoke(
         'create-subscription',
         {
