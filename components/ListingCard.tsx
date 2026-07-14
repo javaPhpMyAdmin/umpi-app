@@ -23,9 +23,16 @@ export function ListingCard({ listing, variant = 'featured', style, onEdit, onDe
     return `$${price.toLocaleString('es-AR')}`;
   };
 
+  const planBorder = listing.is_featured
+    ? {
+        borderWidth: 2,
+        borderColor: listing.listing_priority === 2 ? Colors.gold : '#9CA3AF',
+      }
+    : {};
+
   return (
     <TouchableOpacity
-      style={[isCompact ? styles.compact : styles.featured, style]}
+      style={[isCompact ? styles.compact : styles.featured, planBorder, style]}
       onPress={() => router.push(`/listing/${listing.id}`)}
       activeOpacity={0.8}>
       <View>

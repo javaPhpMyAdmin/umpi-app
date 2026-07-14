@@ -93,6 +93,10 @@ export interface SubscriptionPlan {
   currency: string;
   features: string[];
   listing_priority: number;
+  max_images: number;
+  max_featured: number;
+  featured_duration_days: number;
+  is_active: boolean;
   created_at: string;
 }
 
