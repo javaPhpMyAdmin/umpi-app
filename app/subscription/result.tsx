@@ -1,32 +1,21 @@
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { CheckCircle, XCircle, ArrowLeft } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { CheckCircle, ArrowLeft } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 
 export default function SubscriptionResultScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { status } = useLocalSearchParams<{ status?: string }>();
-
-  const isSuccess = status === 'authorized' || !status;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <View style={styles.icon}>
-        {isSuccess ? (
-          <CheckCircle size={64} color="#22C55E" />
-        ) : (
-          <XCircle size={64} color="#EF4444" />
-        )}
+        <CheckCircle size={64} color="#22C55E" />
       </View>
-      <Text style={styles.title}>
-        {isSuccess ? '¡Suscripción exitosa!' : 'Error al suscribirse'}
-      </Text>
+      <Text style={styles.title}>¡Suscripción exitosa!</Text>
       <Text style={styles.subtitle}>
-        {isSuccess
-          ? 'Tu plan ya está activo. Ya podés destacar tus avisos.'
-          : 'No se pudo procesar el pago. Intentalo de nuevo.'}
+        Tu plan ya está activo. Ya podés destacar tus avisos.
       </Text>
       <TouchableOpacity
         style={styles.btn}
