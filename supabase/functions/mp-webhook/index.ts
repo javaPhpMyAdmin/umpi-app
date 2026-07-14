@@ -135,6 +135,8 @@ serve(async (req) => {
           status: 'active',
           started_at: preapproval.date_created,
           expires_at: preapproval.next_billing_date,
+          featured_used: 0,
+          period_start: new Date().toISOString(),
         }, { onConflict: 'mp_preapproval_id' })
 
       if (upsertError) {
