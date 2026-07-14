@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Star, Check, Crown, Zap } from 'lucide-react-native';
+import { ArrowLeft, Star, Check, Crown } from 'lucide-react-native';
 import * as Linking from 'expo-linking';
 import { Colors } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { showError, showSuccess, showInfo } from '@/lib/toast';
+import { showError, showInfo } from '@/lib/toast';
 
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
@@ -24,7 +24,11 @@ export default function PlansScreen() {
 
   const fetchPlans = async () => {
     setIsLoading(true);
-    const { data } = await supabase.from('subscription_plans').select('*').order('price');
+    const { data } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .eq('is_active', true)
+      .order('price');
     if (data) setPlans(data as SubscriptionPlan[]);
     setIsLoading(false);
   };
@@ -114,8 +118,8 @@ export default function PlansScreen() {
     }
   };
 
-  const planColors = ['#C0C0C0', '#FFD700', '#FF6B35'];
-  const planIcons = [Star, Crown, Zap];
+  const planColors = ['#C0C0C0', '#FFD700'];
+  const planIcons = [Star, Crown];
 
   // 3.4 Empty state for authenticated users with no plans
   if (!isLoading && plans.length === 0 && user) {

@@ -124,13 +124,6 @@ serve(async (req) => {
     const mpStatus: string = preapproval.status
 
     if (mpStatus === 'authorized') {
-      // Fetch plan details
-      const { data: plan } = await supabaseAdmin
-        .from('subscription_plans')
-        .select('slug, listing_priority')
-        .eq('id', planId)
-        .single()
-
       // Upsert subscription
       const { error: upsertError } = await supabaseAdmin
         .from('subscriptions')
@@ -152,7 +145,14 @@ serve(async (req) => {
         })
       }
 
-      // Update profile
+      // Fetch plan slug for profile update
+      const { data: plan } = await supabaseAdmin
+        .from('subscription_plans')
+        .select('slug')
+        .eq('id', planId)
+        .single()
+
+      // Update profile (no listings touched — toggle + RPC handle featuring)
       if (plan?.slug) {
         await supabaseAdmin
           .from('profiles')
@@ -163,13 +163,6 @@ serve(async (req) => {
           .eq('id', userId)
       }
 
-      // Feature all user's listings
-      const priority = plan?.listing_priority ?? 1
-      await supabaseAdmin
-        .from('listings')
-        .update({ is_featured: true, listing_priority: priority })
-        .eq('user_id', userId)
-
       console.log(`Subscription authorized: user=${userId} plan=${planId} mp_id=${preapprovalId}`)
     } else if (mpStatus === 'cancelled') {
       await supabaseAdmin
@@ -178,15 +171,11 @@ serve(async (req) => {
         .eq('mp_preapproval_id', preapprovalId)
 
       await supabaseAdmin
-        .from('listings')
-        .update({ is_featured: false, listing_priority: 0 })
-        .eq('user_id', userId)
-
-      await supabaseAdmin
         .from('profiles')
         .update({ subscription_type: 'none', subscription_expires_at: null })
         .eq('id', userId)
 
+      // Listings stay featured until featured_until expires — cron handles cleanup
       console.log(`Subscription cancelled: user=${userId} mp_id=${preapprovalId}`)
     } else if (mpStatus === 'expired') {
       await supabaseAdmin
@@ -195,15 +184,11 @@ serve(async (req) => {
         .eq('mp_preapproval_id', preapprovalId)
 
       await supabaseAdmin
-        .from('listings')
-        .update({ is_featured: false, listing_priority: 0 })
-        .eq('user_id', userId)
-
-      await supabaseAdmin
         .from('profiles')
         .update({ subscription_type: 'none', subscription_expires_at: null })
         .eq('id', userId)
 
+      // Listings stay featured until featured_until expires — cron handles cleanup
       console.log(`Subscription expired: user=${userId} mp_id=${preapprovalId}`)
     } else {
       console.log(`Unhandled preapproval status: ${mpStatus} for id=${preapprovalId}`)

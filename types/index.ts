@@ -30,6 +30,7 @@ export interface Listing {
   listing_priority: number;
   city_id: string | null;
   city?: City;
+  featured_until: string | null;
   status: string;
   rating: number;
   reviews_count: number;

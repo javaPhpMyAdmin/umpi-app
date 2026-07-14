@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, FlatList, Pressable } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, FlatList, Pressable, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,7 +21,7 @@ export default function PublishScreen() {
   const router = useRouter();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const editMode = !!edit;
   const { data: editListing, isLoading: editLoading } = useListing(edit || null);
 
@@ -38,6 +38,12 @@ export default function PublishScreen() {
   const [loading, setLoading] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
   const locationDetected = useRef(false);
+
+  const hasActivePlan =
+    profile?.subscription_type !== 'none' &&
+    profile?.subscription_expires_at != null &&
+    new Date(profile.subscription_expires_at) > new Date();
+  const [featureToggle, setFeatureToggle] = useState(false);
 
   const editMutation = useEditListing();
 
@@ -79,6 +85,7 @@ export default function PublishScreen() {
     setPrefilled(false);
     setGpsDetected(false);
     setShowCustomLocation(false);
+    setFeatureToggle(false);
     locationDetected.current = false;
   }, []);
 
@@ -262,17 +269,20 @@ export default function PublishScreen() {
         },
       );
     } else {
-      const { error } = await supabase.from('listings').insert({
-        ...updates,
-        user_id: user.id,
-      });
+      const { data: listingData, error } = await supabase
+        .from('listings')
+        .insert({
+          ...updates,
+          user_id: user.id,
+        })
+        .select('id')
+        .single();
 
       setLoading(false);
 
       if (error) {
         showError('Error', error.message);
       } else {
-        showSuccess('Exito', 'Publicacion creada');
         queryClient.invalidateQueries({ queryKey: ['listings'] });
         setTitle('');
         setDescription('');
@@ -281,6 +291,23 @@ export default function PublishScreen() {
         setCityId(null);
         setSelectedCategory(null);
         setImages([]);
+
+        if (featureToggle && listingData?.id) {
+          setLoading(true);
+          const { error: rpcError } = await supabase.rpc('feature_listing', {
+            p_listing_id: listingData.id,
+          });
+          setLoading(false);
+
+          if (rpcError) {
+            showSuccess('Publicación creada');
+            showError('No se pudo destacar el aviso', rpcError.message);
+          } else {
+            showSuccess('Tu aviso fue destacado correctamente');
+          }
+        } else {
+          showSuccess('Exito', 'Publicacion creada');
+        }
       }
     }
   };
@@ -428,6 +455,36 @@ export default function PublishScreen() {
           </ScrollView>
         </View>
 
+        {!editMode && (
+          hasActivePlan ? (
+            <View style={styles.section}>
+              <View style={styles.featureRow}>
+                <View style={styles.featureLabelContainer}>
+                  <Text style={styles.sectionLabel}>Destacar aviso</Text>
+                  <Text style={styles.featureHelper}>
+                    Tu aviso aparecerá primero en los resultados
+                  </Text>
+                </View>
+                <Switch
+                  value={featureToggle}
+                  onValueChange={setFeatureToggle}
+                  trackColor={{ false: Colors.border, true: Colors.primary }}
+                  thumbColor={featureToggle ? Colors.white : '#f4f3f4'}
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.banner}>
+              <Text style={styles.bannerText}>
+                Suscribite a un plan para destacar tus avisos
+              </Text>
+              <TouchableOpacity style={styles.bannerBtn} onPress={() => router.push('/plans')}>
+                <Text style={styles.bannerBtnText}>Ver planes</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        )}
+
         <TouchableOpacity style={[styles.publishBtn, loading && { opacity: 0.6 }]} onPress={handlePublish} disabled={loading}>
           <Text style={styles.publishBtnText}>
             {loading ? (editMode ? 'Guardando...' : 'Publicando...') : (editMode ? 'Guardar cambios' : 'Publicar aviso')}
@@ -517,6 +574,13 @@ const styles = StyleSheet.create({
   addImageText: { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
   placeholder: { color: Colors.textMuted },
   loadingText: { color: Colors.textMuted, fontStyle: 'italic' },
+  featureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14 },
+  featureLabelContainer: { flex: 1, marginRight: 12 },
+  featureHelper: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  banner: { backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.primary, borderStyle: 'dashed' },
+  bannerText: { fontSize: 14, color: Colors.text, fontWeight: '600', marginBottom: 12, lineHeight: 20 },
+  bannerBtn: { backgroundColor: Colors.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, alignSelf: 'flex-start' },
+  bannerBtnText: { color: Colors.white, fontWeight: '700', fontSize: 13 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
