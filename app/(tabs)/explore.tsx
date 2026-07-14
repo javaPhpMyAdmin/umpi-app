@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   filterChipText: { fontSize: 12, fontWeight: '600', color: Colors.text },
   list: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
-  categoriesSection: { marginTop: 16, paddingHorizontal: 16 },
+  categoriesSection: { marginTop: 16, marginBottom: 16, paddingHorizontal: 16 },
   categoryScroll: {},
   categoriesRow: { flexDirection: 'row', gap: 10, paddingRight: 16 },
   clearBar: {

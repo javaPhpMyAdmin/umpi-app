@@ -12,8 +12,11 @@ import { toastConfig } from '@/lib/toast';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60_000, // 1 minuto antes de considerar datos viejos
-      refetchOnWindowFocus: true, // refetch al volver al tab
+      staleTime: 60_000,
+      // refetchOnWindowFocus: false — en mobile no aplica como en web.
+      // Cada query ya tiene su staleTime y las mutations invalidan
+      // lo necesario. Sin esto evitamos N refetches al volver a la app.
+      refetchOnWindowFocus: false,
       retry: 1,
     },
   },

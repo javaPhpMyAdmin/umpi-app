@@ -131,42 +131,43 @@ export default function ChatScreen() {
     setInput('');
 
     if (isNew) {
-      // Crear conversación + primer mensaje atómicamente
+      // Crear conversación + primer mensaje en una transacción atómica via RPC
       setCreating(true);
-      const { data: conv, error: convError } = await supabase
-        .from('conversations')
-        .insert({
-          listing_id: listingId as string,
-          user1_id: user.id,
-          user2_id: otherUserId as string,
-        })
-        .select('id')
-        .single();
+      const { data, error } = await supabase.rpc(
+        'create_conversation_with_message',
+        {
+          p_listing_id: listingId as string,
+          p_user1_id: user.id,
+          p_user2_id: otherUserId as string,
+          p_content: content,
+        },
+      );
 
-      if (convError || !conv) {
+      if (error || !data?.conversation_id) {
         showError('Error', 'No se pudo iniciar la conversación');
         setCreating(false);
         return;
       }
 
-      const { error: msgError } = await supabase.from('messages').insert({
-        conversation_id: conv.id,
-        sender_id: user.id,
-        content,
-      });
+      // Precargamos el mensaje en cache así la nueva screen monta con datos
+      // en vez de mostrar el skeleton. La refetch de fondo se va a dar
+      // cuando venza el staleTime (30s) o al recibir un mensaje nuevo via real-time.
+      queryClient.setQueryData<Message[]>(
+        ['messages', data.conversation_id],
+        [
+          {
+            id: `temp-${Date.now()}`,
+            conversation_id: data.conversation_id,
+            sender_id: user.id,
+            content,
+            created_at: new Date().toISOString(),
+          } as Message,
+        ],
+      );
 
-      if (msgError) {
-        showError('Error', 'No se pudo enviar el mensaje');
-        setCreating(false);
-        return;
-      }
-
-      await supabase
-        .from('conversations')
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('id', conv.id);
-
-      router.replace(`/chat/${conv.id}?otherName=${encodeURIComponent(otherNameParam as string || 'Usuario')}&otherUserId=${otherUserId}&otherAvatar=${otherAvatarParam ? encodeURIComponent(otherAvatarParam as string) : ''}`);
+      router.replace(
+        `/chat/${data.conversation_id}?otherName=${encodeURIComponent(otherNameParam as string || 'Usuario')}&otherUserId=${otherUserId}&otherAvatar=${otherAvatarParam ? encodeURIComponent(otherAvatarParam as string) : ''}`,
+      );
     } else if (conversationId) {
       sendMutation.mutate({ conversationId, content, senderId: user.id });
     }
