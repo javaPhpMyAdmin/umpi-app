@@ -61,7 +61,7 @@ After the user authorizes or cancels in the MP browser, the system MUST process 
 
 ### Requirement: Process incoming webhook events idempotently
 
-The `mp-webhook` Edge Function MUST handle status changes from MercadoPago PreApproval webhooks: `authorized`, `cancelled`, `paused`, and `expired`. Processing MUST be idempotent — the same event MUST NOT create duplicate records.
+The `mp-webhook` Edge Function MUST handle status changes from MercadoPago PreApproval webhooks: `authorized`, `cancelled`, `paused`, and `expired`. Processing MUST be idempotent — the same event MUST NOT create duplicate records. On `authorized` events, the webhook MUST compute and set `featured_until = now() + interval '1 day' * plan.featured_duration_days` for all featured listings.
 
 #### Scenario: Webhook for authorized preapproval
 
@@ -70,6 +70,7 @@ The `mp-webhook` Edge Function MUST handle status changes from MercadoPago PreAp
 - THEN the system MUST upsert the subscription row with `mp_preapproval_id` and `external_reference`
 - AND set `subscription_type` to the corresponding plan level
 - AND set `is_featured = true` on all the user's listings
+- AND set `featured_until = now() + interval '1 day' * plan.featured_duration_days` on all the user's listings
 - AND return HTTP 200
 
 #### Scenario: Duplicate webhook event

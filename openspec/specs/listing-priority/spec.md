@@ -62,7 +62,7 @@ When a subscription is cancelled (via user action) or expires (via cron), ALL of
 
 ### Requirement: Data integrity for featured listings
 
-The system MUST prevent manual (non-MP-authorized) setting of `listing_priority > 0` or `is_featured = true` outside the subscription flow. Only the Edge Functions and the cron job (running with service role) MUST be able to set feature-related columns.
+The system MUST prevent manual (non-MP-authorized) setting of `listing_priority > 0` or `is_featured = true` outside the subscription flow. Only the Edge Functions, the cron job (running with service role), and the `feature_listing` SECURITY DEFINER RPC MUST be able to set feature-related columns.
 
 #### Scenario: User tries to manually feature a listing
 
@@ -77,3 +77,10 @@ The system MUST prevent manual (non-MP-authorized) setting of `listing_priority 
 - WHEN it updates the user's listings
 - THEN the update MUST succeed (using service_role key bypasses RLS)
 - AND all affected listings MUST have matching `is_featured = true` and correct `listing_priority`
+
+#### Scenario: feature_listing RPC sets feature columns
+
+- GIVEN the authenticated user calls `feature_listing(listing_id)` with a valid plan
+- WHEN the RPC executes
+- THEN it MUST set `is_featured = true`, `listing_priority`, and `featured_until` atomically
+- AND the update MUST succeed (SECURITY DEFINER bypasses client-side RLS triggers)

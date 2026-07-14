@@ -1,11 +1,11 @@
-# Skill Registry — umpi-app
+# Skill Registry — UmpiApp
 
-Generated: 2026-07-09 by sdd-init
+Generated: 2026-07-14 by sdd-init (refresh)
 
 ## Project Skills
 
 No project-level skills are available on disk.
-The `.agents/skills/` directory is empty. The `skills-lock.json` references skills from
+The `.agents/skills/` and `.opencode/skills/` directories are empty. The `skills-lock.json` references skills from
 GitHub sources (expo/skills, supabase/agent-skills, vercel-labs/agent-skills) but those
 SKILL.md files are not present locally. Run `skill-registry` after fetching them to index.
 
@@ -35,6 +35,6 @@ SKILL.md files are not present locally. Run `skill-registry` after fetching them
 ## Registry Info
 
 - User skill dirs scanned: `~/.config/opencode/skills/`
-- Project skill dirs scanned: `.agents/skills/` (empty)
+- Project skill dirs scanned: `.agents/skills/`, `.opencode/skills/` (both empty)
 - Siblings skipped (SDD phases): sdd-apply, sdd-archive, sdd-design, sdd-explore, sdd-init, sdd-onboard, sdd-propose, sdd-spec, sdd-tasks, sdd-verify
 - Siblings skipped (other): _shared, skill-registry
