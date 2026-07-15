@@ -25,7 +25,7 @@ export function ListingCard({ listing, variant = 'featured', style, onEdit, onDe
 
   const planBorder = listing.is_featured
     ? {
-        borderWidth: 2,
+        borderWidth: 5,
         borderColor: listing.listing_priority === 2 ? Colors.gold : '#9CA3AF',
       }
     : {};
@@ -50,7 +50,7 @@ export function ListingCard({ listing, variant = 'featured', style, onEdit, onDe
         </View>
       )}
       <View style={isCompact ? styles.compactContent : styles.featuredContent}>
-        <Text style={isCompact ? styles.compactTitle : styles.featuredTitle} numberOfLines={2}>
+        <Text style={isCompact ? styles.compactTitle : styles.featuredTitle} numberOfLines={isCompact ? 1 : 2} ellipsizeMode="tail">
           {listing.title}
         </Text>
         <Text style={styles.price}>{formatPrice(listing.price)}</Text>

@@ -74,7 +74,7 @@ export default function HomeScreen() {
         <View style={styles.headerTopRow}>
           <View style={styles.logoRow}>
             <Store size={32} color={Colors.white} style={styles.storeIcon} />
-            <Text style={styles.logo}>Umpiii</Text>
+            <Text style={styles.logo}>Umpi</Text>
           </View>
           {user && (
             <TouchableOpacity
