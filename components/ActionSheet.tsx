@@ -95,11 +95,16 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   sheet: {
-    backgroundColor: '#FFECE0',
+    backgroundColor: Colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
     paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   option: {
     flexDirection: 'row',
@@ -131,11 +136,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
-    backgroundColor: '#FFD4B5',
+    backgroundColor: '#D4D4D4',
   },
   cancelBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: Colors.text,
   },
 });

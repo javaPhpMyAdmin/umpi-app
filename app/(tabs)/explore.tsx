@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textSecondary,
   },
-  statsBar: { paddingHorizontal: 16, marginTop: 16, marginBottom: 4 },
+  statsBar: { paddingHorizontal: 16, marginTop: 16, marginBottom: 12 },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statsSearching: {
     fontSize: 13,
@@ -441,9 +441,9 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   statsText: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '600',
   },
   gridRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16 },
   gridColumn: { width: '50%' },

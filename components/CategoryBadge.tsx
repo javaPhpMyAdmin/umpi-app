@@ -16,7 +16,7 @@ export function CategoryBadge({ category, isActive, onPress, showCount, variant 
 
   if (variant === 'card') {
     return (
-      <TouchableOpacity style={[styles.card, { backgroundColor: `${color}10` }]} onPress={onPress} activeOpacity={0.7}>
+      <TouchableOpacity style={[styles.card, { backgroundColor: `${color}20` }]} onPress={onPress} activeOpacity={0.7}>
         <View style={[styles.cardIcon, { backgroundColor: color }]}>
           <CategoryIcon icon={category.icon} size={22} color={Colors.white} />
         </View>
@@ -28,7 +28,7 @@ export function CategoryBadge({ category, isActive, onPress, showCount, variant 
 
   return (
     <TouchableOpacity
-      style={[styles.badge, isActive ? { backgroundColor: color } : { backgroundColor: `${color}10` }]}
+      style={[styles.badge, isActive ? { backgroundColor: color } : { backgroundColor: `${color}20` }]}
       onPress={onPress}
       activeOpacity={0.7}>
       <CategoryIcon icon={category.icon} size={16} color={isActive ? Colors.white : color} />

@@ -31,6 +31,7 @@ export function useMyListings(userId: string | undefined) {
         .select('*, category:category_id(*), city:city_id(*)')
         .eq('user_id', userId!)
         .eq('status', 'active')
+        .order('listing_priority', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -68,7 +69,8 @@ export function useEditListing() {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['listing', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
     },
@@ -100,7 +102,8 @@ export function useDeleteListing() {
         );
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['listing', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['listings'] });
       queryClient.invalidateQueries({ queryKey: ['my-listings'] });
     },

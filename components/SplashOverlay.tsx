@@ -4,6 +4,7 @@ import {
   Text,
   Image,
   Animated,
+  Easing,
   StyleSheet,
 } from 'react-native';
 import { Colors } from '@/constants/colors';
@@ -21,7 +22,7 @@ export function SplashOverlay({ onFinish }: SplashOverlayProps) {
   const [exiting, setExiting] = useState(false);
   const [dots, setDots] = useState(0);
 
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
   const containerOpacity = useRef(new Animated.Value(1)).current;
   const barProgress = useRef(new Animated.Value(0)).current;
 
@@ -31,18 +32,20 @@ export function SplashOverlay({ onFinish }: SplashOverlayProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Animación de entrada: icono pulsa (se agranda y se achica) en loop
+  // Animación: rebote vertical suave (más fluido que scale)
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.12,
-          duration: 900,
+        Animated.timing(translateY, {
+          toValue: -40,
+          duration: 750,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.92,
-          duration: 900,
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 750,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ]),
@@ -96,7 +99,7 @@ export function SplashOverlay({ onFinish }: SplashOverlayProps) {
       pointerEvents="auto"
       style={[styles.container, { opacity: containerOpacity }]}
     >
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Animated.View style={{ transform: [{ translateY }] }}>
         <Image
           source={require('@/assets/images/icon.png')}
           style={styles.logo}
@@ -145,9 +148,9 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   logo: {
-    width: 180,
-    height: 180,
-    borderRadius: 36,
+    width: 220,
+    height: 220,
+    borderRadius: 44,
   },
   loadingRow: {
     flexDirection: 'row',

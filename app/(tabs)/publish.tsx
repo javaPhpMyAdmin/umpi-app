@@ -371,16 +371,18 @@ export default function PublishScreen() {
           <Text style={styles.sectionLabel}>Titulo <Text style={styles.required}>*</Text></Text>
           <View style={styles.inputRow}>
             <Tag size={18} color={Colors.textMuted} />
-            <TextInput style={styles.input} placeholder="Que queres publicar?" placeholderTextColor={Colors.textMuted} value={title} onChangeText={setTitle} />
+            <TextInput style={styles.input} placeholder="Que queres publicar?" placeholderTextColor={Colors.textMuted} value={title} onChangeText={setTitle} maxLength={100} />
           </View>
+          <Text style={styles.charCounter}>{title.length}/100</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Descripcion</Text>
           <View style={styles.inputRow}>
             <FileText size={18} color={Colors.textMuted} />
-            <TextInput style={[styles.input, styles.textArea]} placeholder="Describe tu producto o servicio..." placeholderTextColor={Colors.textMuted} value={description} onChangeText={setDescription} multiline numberOfLines={4} />
+            <TextInput style={[styles.input, styles.textArea]} placeholder="Describe tu producto o servicio..." placeholderTextColor={Colors.textMuted} value={description} onChangeText={setDescription} multiline numberOfLines={4} maxLength={500} />
           </View>
+          <Text style={styles.charCounter}>{description.length}/500</Text>
         </View>
 
         <View style={styles.section}>
@@ -581,6 +583,7 @@ const styles = StyleSheet.create({
   bannerText: { fontSize: 14, color: Colors.text, fontWeight: '600', marginBottom: 12, lineHeight: 20 },
   bannerBtn: { backgroundColor: Colors.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, alignSelf: 'flex-start' },
   bannerBtnText: { color: Colors.white, fontWeight: '700', fontSize: 13 },
+  charCounter: { fontSize: 12, color: Colors.textMuted, textAlign: 'right', marginTop: 2 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },

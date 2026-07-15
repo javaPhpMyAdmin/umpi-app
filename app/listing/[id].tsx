@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions, BackHandler } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowDimensions, BackHandler, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -8,19 +9,18 @@ import { GestureHandlerRootView, ScrollView as GHSscrollView } from 'react-nativ
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Listing, Profile } from '@/types';
 import ReviewModal from '@/components/ReviewModal';
 import ReviewsListModal from '@/components/ReviewsListModal';
 import { UserAvatar } from '@/components/UserAvatar';
 import { showError, showSuccess } from '@/lib/toast';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import ActionSheet from '@/components/ActionSheet';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useListing } from '@/hooks/useListing';
+import { useProfile } from '@/hooks/useProfile';
 import { useDeleteListing } from '@/hooks/useListings';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import ZoomableImage from '@/components/ZoomableImage';
-
-// ⚠️ Set to 0 in production — this is only for visual QA of the skeleton
-const SIMULATED_DELAY_MS = 0;
 
 export default function ListingDetailScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -30,98 +30,69 @@ export default function ListingDetailScreen() {
   const { user } = useAuth();
   const imageHeight = Math.min(screenHeight * 0.35, 340);
   const modalImageSize = Math.min(screenWidth * 0.95, 480);
-  const [listing, setListing] = useState<Listing | null>(null);
-  const [seller, setSeller] = useState<Profile | null>(null);
+  const { data: listing, isLoading } = useListing(id as string);
+  const { data: seller, isLoading: sellerLoading } = useProfile(listing?.user_id);
+
   const [hasConversation, setHasConversation] = useState<string | null>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
-  const [reviewCheckLoading, setReviewCheckLoading] = useState(true);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
+
+  const queryClient = useQueryClient();
 
   const isOwner = !!user && !!listing && listing.user_id === user.id;
   const deleteMutation = useDeleteListing();
 
-  useEffect(() => {
-    fetchListing();
-  }, [id]);
-
-  const fetchListing = async () => {
-    setLoading(true);
-
-    // Artificial delay for skeleton visual QA
-    if (SIMULATED_DELAY_MS > 0) {
-      await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY_MS));
-    }
-
-    const { data } = await supabase
-      .from('listings')
-      .select('*, category:category_id(*), city:city_id(*)')
-      .eq('id', id as string)
-      .maybeSingle();
-    if (data) {
-      setListing(data as Listing);
-      // Fetch seller profile separately (listings.user_id references auth.users, not profiles)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user_id)
-        .maybeSingle();
-      if (profile) setSeller(profile as Profile);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    const run = async () => {
+  const checkConversationAndReview = useCallback(async () => {
+    if (!listing || !user) {
       setHasConversation(null);
       setHasReviewed(false);
-      setReviewCheckLoading(true);
-      if (!listing || !user) {
-        setReviewCheckLoading(false);
-        return;
-      }
-      if (listing.user_id === user.id) {
-        setReviewCheckLoading(false);
-        return;
-      }
+      return;
+    }
+    if (listing.user_id === user.id) {
+      setHasConversation(null);
+      setHasReviewed(false);
+      return;
+    }
 
-      // Buscar todas las conversaciones de este listing (archivadas incluidas)
-      const { data: conversations } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('listing_id', listing.id)
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .order('created_at', { ascending: false });
+    // Buscar todas las conversaciones de este listing (archivadas incluidas)
+    const { data: conversations } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('listing_id', listing.id)
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
 
-      if (!conversations || conversations.length === 0) {
-        setReviewCheckLoading(false);
-        return;
-      }
+    if (!conversations || conversations.length === 0) {
+      setHasConversation(null);
+      setHasReviewed(false);
+      return;
+    }
 
-      // Usar la más reciente para el modal de calificar
-      const latestConv = conversations[0];
-      setHasConversation(latestConv.id);
+    // Usar la más reciente para el modal de calificar
+    const latestConv = conversations[0];
+    const convIds = conversations.map((c: { id: string }) => c.id);
 
-      // Buscar si YA calificó en cualquiera de las conversaciones
-      const convIds = conversations.map((c: { id: string }) => c.id);
-      const { data: review } = await supabase
-        .from('reviews')
-        .select('id')
-        .in('conversation_id', convIds)
-        .eq('reviewer_id', user.id)
-        .maybeSingle();
+    // Buscar si YA calificó en cualquiera de las conversaciones
+    const { data: review } = await supabase
+      .from('reviews')
+      .select('id')
+      .in('conversation_id', convIds)
+      .eq('reviewer_id', user.id)
+      .maybeSingle();
 
-      if (review) setHasReviewed(true);
-      setReviewCheckLoading(false);
-    };
-    run();
+    // Setear ambos estados juntos — React batch update, un solo render
+    setHasConversation(latestConv.id);
+    setHasReviewed(!!review);
   }, [listing?.id, user?.id]);
+
+  // Correr al montar y cada vez que la screen recibe foco (vuelta del chat)
+  useFocusEffect(() => { checkConversationAndReview(); });
 
   // Android back button closes image modal instead of navigating back
   useEffect(() => {
@@ -133,24 +104,32 @@ export default function ListingDetailScreen() {
     return () => handler.remove();
   }, [showImageModal]);
 
-  const handleSubmitReview = async (rating: number, comment: string) => {
-    if (!user || !hasConversation || !listing) return;
-    const { error } = await supabase.from('reviews').insert({
-      conversation_id: hasConversation,
-      listing_id: listing.id,
-      reviewer_id: user.id,
-      rating,
-      comment: comment || null,
-    });
-    if (error) {
-      if (error.code === '23505') {
-        throw new Error('Ya calificaste a este vendedor.');
+  const reviewMutation = useMutation({
+    mutationFn: async ({ rating, comment }: { rating: number; comment: string }) => {
+      if (!user || !hasConversation || !listing) throw new Error('No se puede calificar');
+      const { error } = await supabase.from('reviews').insert({
+        conversation_id: hasConversation,
+        listing_id: listing.id,
+        reviewer_id: user.id,
+        rating,
+        comment: comment || null,
+      });
+      if (error) {
+        if (error.code === '23505') throw new Error('Ya calificaste a este vendedor.');
+        throw new Error('Error al enviar la calificación. Intentalo de nuevo.');
       }
-      throw new Error('Error al enviar la calificación. Intentalo de nuevo.');
-    }
-    setHasReviewed(true);
-    setShowModal(false);
-    showSuccess('Calificación enviada');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listing', id] });
+      queryClient.invalidateQueries({ queryKey: ['listing-reviews', id] });
+      setHasReviewed(true);
+      setShowModal(false);
+      showSuccess('Calificación enviada');
+    },
+  });
+
+  const handleSubmitReview = async (rating: number, comment: string) => {
+    await reviewMutation.mutateAsync({ rating, comment });
   };
 
   const handleEdit = () => {
@@ -211,7 +190,7 @@ export default function ListingDetailScreen() {
     }
   };
 
-  if (loading || !listing) {
+  if (isLoading || !listing) {
     return (
       <View style={styles.container}>
         <StatusBar style="dark" />
@@ -254,18 +233,16 @@ export default function ListingDetailScreen() {
           <TouchableOpacity style={[styles.backBtn, { top: 8 }]} onPress={() => router.back()}>
             <ArrowLeft size={22} color={Colors.white} />
           </TouchableOpacity>
+          {listing.is_featured && (
+            <View style={[styles.featuredBadgeOverlay, { top: 8 }]}>
+              <Star size={16} color={Colors.white} fill={Colors.white} />
+              <Text style={styles.featuredText}>Destacado</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.content}>
-          <View style={styles.headerRow}>
-            <Text style={styles.title}>{listing.title}</Text>
-            {listing.is_featured && (
-              <View style={styles.featuredBadge}>
-                <Star size={12} color={Colors.gold} fill={Colors.gold} />
-                <Text style={styles.featuredText}>Destacado</Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.title}>{listing.title}</Text>
 
           <Text style={styles.price}>
             {listing.price ? `$${listing.price.toLocaleString('es-AR')}` : 'Consultar'}
@@ -296,30 +273,40 @@ export default function ListingDetailScreen() {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Vendedor</Text>
-              <View style={styles.sellerRow}>
-                <UserAvatar url={seller?.avatar_url} name={seller?.full_name} size={44} />
-              <View style={styles.sellerInfo}>
-                <Text style={styles.sellerName}>{seller?.full_name || 'Usuario'}</Text>
-                <View style={styles.sellerMeta}>
-                  <Star size={12} color={Colors.star} fill={Colors.star} />
-                  <Text style={styles.sellerMetaText}>{seller?.rating?.toFixed(1) || '5.0'}</Text>
-                  <TouchableOpacity
-                    style={styles.reviewsLink}
-                    onPress={() => setShowReviewsModal(true)}
-                  >
-                    <Text style={styles.reviewsLinkText}>
-                      · Ver {listing.reviews_count || 0} {listing.reviews_count === 1 ? 'calificación' : 'calificaciones'}
-                    </Text>
-                  </TouchableOpacity>
+              {sellerLoading ? (
+                <View style={styles.sellerRow}>
+                  <View style={styles.sellerSkeletonAvatar} />
+                  <View style={styles.sellerInfo}>
+                    <View style={styles.sellerSkeletonName} />
+                    <View style={styles.sellerSkeletonMeta} />
+                  </View>
                 </View>
-                <Text style={styles.sellerMemberSince}>
-                  Miembro desde {seller?.created_at ? new Date(seller.created_at).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : 'desconocido'}
-                </Text>
-              </View>
-            </View>
+              ) : (
+                <View style={styles.sellerRow}>
+                  <UserAvatar url={seller?.avatar_url} name={seller?.full_name} size={44} />
+                  <View style={styles.sellerInfo}>
+                    <Text style={styles.sellerName}>{seller?.full_name || 'Usuario'}</Text>
+                    <View style={styles.sellerMeta}>
+                      <Star size={12} color={Colors.star} fill={Colors.star} />
+                      <Text style={styles.sellerMetaText}>{seller?.rating?.toFixed(1) || '5.0'}</Text>
+                      <TouchableOpacity
+                        style={styles.reviewsLink}
+                        onPress={() => setShowReviewsModal(true)}
+                      >
+                        <Text style={styles.reviewsLinkText}>
+                          · Ver {listing.reviews_count || 0} {listing.reviews_count === 1 ? 'calificación' : 'calificaciones'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.sellerMemberSince}>
+                      Miembro desde {seller?.created_at ? new Date(seller.created_at).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }) : 'desconocido'}
+                    </Text>
+                  </View>
+                </View>
+              )}
           </View>
 
-          {user && listing.user_id !== user.id && hasConversation && !reviewCheckLoading ? (
+          {user && listing.user_id !== user.id && hasConversation ? (
             hasReviewed ? (
               <Text style={styles.reviewedText}>Ya calificaste este aviso</Text>
             ) : (
@@ -365,17 +352,23 @@ export default function ListingDetailScreen() {
         ]}
       />
 
-      <BottomSheetDialog
-        visible={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        icon={<Trash2 size={28} color={Colors.error} />}
-        title="Eliminar aviso"
-        message="Se eliminaran las imagenes y el aviso dejara de ser visible. Esta accion no se puede deshacer."
-        primaryLabel="Eliminar"
-        primaryAction={handleDelete}
-        secondaryLabel="Cancelar"
-        destructiveSecondary
-      />
+      <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
+        <View style={styles.deleteOverlay}>
+          <View style={styles.deleteCard}>
+            <Trash2 size={32} color={Colors.error} />
+            <Text style={styles.deleteTitle}>Eliminar aviso</Text>
+            <Text style={styles.deleteMessage}>
+              Se eliminaran las imagenes y el aviso dejara de ser visible. Esta accion no se puede deshacer.
+            </Text>
+            <TouchableOpacity style={styles.deletePrimaryBtn} onPress={handleDelete}>
+              <Text style={styles.deletePrimaryBtnText}>Eliminar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowDeleteConfirm(false)} style={styles.deleteCancelBtn}>
+              <Text style={styles.deleteCancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Image gallery overlay */}
       {showImageModal && (
@@ -447,16 +440,18 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
   dotActive: { width: 22, backgroundColor: Colors.white },
   content: { padding: 20, paddingBottom: 100 },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  title: { flex: 1, fontSize: 22, fontWeight: '800', color: Colors.text, lineHeight: 28 },
-  featuredBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: `${Colors.gold}15`, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
-  featuredText: { fontSize: 10, color: Colors.gold, fontWeight: '700' },
+  title: { fontSize: 22, fontWeight: '800', color: Colors.text, lineHeight: 28, marginBottom: 8 },
+  featuredBadgeOverlay: { position: 'absolute', right: 16, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.gold, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  featuredText: { fontSize: 15, color: Colors.white, fontWeight: '900', letterSpacing: 0.5 },
   price: { fontSize: 24, fontWeight: '800', color: Colors.primary, marginTop: 4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 13, color: Colors.textMuted },
   section: { marginTop: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.text, marginBottom: 8 },
+  sellerSkeletonAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.borderLight },
+  sellerSkeletonName: { height: 15, borderRadius: 6, width: '45%', backgroundColor: Colors.borderLight },
+  sellerSkeletonMeta: { height: 12, borderRadius: 6, width: '55%', backgroundColor: Colors.borderLight, marginTop: 6 },
   description: { fontSize: 14, color: Colors.textSecondary, lineHeight: 22 },
   sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sellerInfo: { flex: 1 },
@@ -472,10 +467,18 @@ const styles = StyleSheet.create({
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.surface, padding: 16, borderTopWidth: 1, borderTopColor: Colors.border },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, padding: 16, borderRadius: 14 },
   contactBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
-  ownerMenuBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.textSecondary, padding: 16, borderRadius: 14 },
+  ownerMenuBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FF7A45', padding: 16, borderRadius: 14 },
   unavailable: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 8 },
   unavailableTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, textAlign: 'center' },
   unavailableText: { fontSize: 14, color: Colors.textMuted, textAlign: 'center' },
+  deleteOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  deleteCard: { width: '100%', maxWidth: 360, backgroundColor: Colors.white, borderRadius: 24, padding: 28, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 10 },
+  deleteTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, marginTop: 16, marginBottom: 8 },
+  deleteMessage: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  deletePrimaryBtn: { width: '100%', backgroundColor: Colors.error, paddingVertical: 15, borderRadius: 14, alignItems: 'center' },
+  deletePrimaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
+  deleteCancelBtn: { paddingVertical: 12, marginTop: 4 },
+  deleteCancelBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
   modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
   modalCard: { backgroundColor: Colors.white, borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 16 },
   modalImage: { resizeMode: 'cover' },
