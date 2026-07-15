@@ -74,7 +74,7 @@ export default function HomeScreen() {
         <View style={styles.headerTopRow}>
           <View style={styles.logoRow}>
             <Store size={32} color={Colors.white} style={styles.storeIcon} />
-            <Text style={styles.logo}>Umpi</Text>
+            <Text style={styles.logo}>Umpiii</Text>
           </View>
           {user && (
             <TouchableOpacity
@@ -179,7 +179,7 @@ export default function HomeScreen() {
                 <Star size={20} color={Colors.primary} />
                 <Text style={styles.sectionTitle}>Destacados</Text>
               </View>
-              <TouchableOpacity onPress={() => router.push({ pathname: '/explore' })}>
+              <TouchableOpacity onPress={() => router.push({ pathname: '/featured' })}>
                 <Text style={styles.sectionLink}>Ver todos</Text>
               </TouchableOpacity>
             </View>

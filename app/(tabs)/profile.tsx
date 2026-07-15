@@ -138,6 +138,7 @@ export default function ProfileScreen() {
     premium: 'Premium',
     profesional: 'Profesional',
     basico: 'B\u00e1sico',
+    estandar: 'Est\u00e1ndar',
     pending: 'Pendiente',
   };
 
