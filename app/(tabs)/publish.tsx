@@ -47,12 +47,8 @@ export default function PublishScreen() {
   const [featureToggle, setFeatureToggle] = useState(false);
 
   const editMutation = useEditListing();
-  const {
-    remaining,
-    maxFeatured,
-    loading: featuredLoading,
-    refetch: refetchFeatured,
-  } = useFeaturedRemaining();
+  const { data: featured, isPending: featuredPending, error: featuredError, refetch: refetchFeatured } =
+    useFeaturedRemaining();
 
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -478,16 +474,20 @@ export default function PublishScreen() {
                 <Switch
                   value={featureToggle}
                   onValueChange={setFeatureToggle}
-                  disabled={!featuredLoading && remaining <= 0}
+                  disabled={!featuredPending && !featuredError && (featured?.remaining ?? 0) <= 0}
                   trackColor={{ false: Colors.border, true: Colors.primary }}
                   thumbColor={featureToggle ? Colors.white : '#f4f3f4'}
                 />
               </View>
-              {featuredLoading ? (
+              {featuredPending ? (
                 <Text style={styles.featureRemaining}>Cargando...</Text>
-              ) : remaining > 0 ? (
+              ) : featuredError ? (
+                <Text style={[styles.featureRemaining, { color: Colors.error }]}>
+                  Error al cargar tus destacados
+                </Text>
+              ) : (featured?.remaining ?? 0) > 0 ? (
                 <Text style={styles.featureRemaining}>
-                  Te {remaining === 1 ? 'queda' : 'quedan'} {remaining} destacado{remaining !== 1 ? 's' : ''} de {maxFeatured} este período
+                  Te {(featured?.remaining ?? 0) === 1 ? 'queda' : 'quedan'} {featured?.remaining} destacado{featured?.remaining !== 1 ? 's' : ''} de {featured?.maxFeatured} este período
                 </Text>
               ) : (
                 <Text style={[styles.featureRemaining, { color: Colors.error }]}>
