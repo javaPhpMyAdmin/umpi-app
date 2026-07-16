@@ -15,6 +15,7 @@ import { CategoryBadge } from '@/components/CategoryBadge';
 import { showError, showSuccess } from '@/lib/toast';
 import { useListing } from '@/hooks/useListing';
 import { useEditListing } from '@/hooks/useListings';
+import { useFeaturedRemaining } from '@/hooks/useFeaturedRemaining';
 
 export default function PublishScreen() {
   const insets = useSafeAreaInsets();
@@ -46,6 +47,12 @@ export default function PublishScreen() {
   const [featureToggle, setFeatureToggle] = useState(false);
 
   const editMutation = useEditListing();
+  const {
+    remaining,
+    maxFeatured,
+    loading: featuredLoading,
+    refetch: refetchFeatured,
+  } = useFeaturedRemaining();
 
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -305,6 +312,7 @@ export default function PublishScreen() {
           } else {
             showSuccess('Tu aviso fue destacado correctamente');
           }
+          refetchFeatured();
         } else {
           showSuccess('Exito', 'Publicacion creada');
         }
@@ -470,10 +478,22 @@ export default function PublishScreen() {
                 <Switch
                   value={featureToggle}
                   onValueChange={setFeatureToggle}
+                  disabled={!featuredLoading && remaining <= 0}
                   trackColor={{ false: Colors.border, true: Colors.primary }}
                   thumbColor={featureToggle ? Colors.white : '#f4f3f4'}
                 />
               </View>
+              {featuredLoading ? (
+                <Text style={styles.featureRemaining}>Cargando...</Text>
+              ) : remaining > 0 ? (
+                <Text style={styles.featureRemaining}>
+                  Te {remaining === 1 ? 'queda' : 'quedan'} {remaining} destacado{remaining !== 1 ? 's' : ''} de {maxFeatured} este período
+                </Text>
+              ) : (
+                <Text style={[styles.featureRemaining, { color: Colors.error }]}>
+                  Agotaste tus destacados de este período
+                </Text>
+              )}
             </View>
           ) : (
             <View style={styles.banner}>
@@ -579,6 +599,7 @@ const styles = StyleSheet.create({
   featureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14 },
   featureLabelContainer: { flex: 1, marginRight: 12 },
   featureHelper: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  featureRemaining: { fontSize: 12, color: Colors.primary, fontWeight: '600', marginTop: 4, paddingLeft: 16 },
   banner: { backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.primary, borderStyle: 'dashed' },
   bannerText: { fontSize: 14, color: Colors.text, fontWeight: '600', marginBottom: 12, lineHeight: 20 },
   bannerBtn: { backgroundColor: Colors.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, alignSelf: 'flex-start' },
