@@ -494,10 +494,6 @@ export default function PublishScreen() {
                   Agotaste tus destacados de este período
                 </Text>
               )}
-              {/* DEBUG: mostrar datos crudos del hook */}
-              <Text style={{ fontSize: 10, color: '#999', marginTop: 8, paddingLeft: 16 }}>
-                debug: pending={String(featuredPending)} error={String(!!featuredError)} uid={user?.id} data={JSON.stringify(featured)}
-              </Text>
             </View>
           ) : (
             <View style={styles.banner}>

@@ -21,6 +21,24 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 import { useListingsInfinite } from '@/hooks/useListingsInfinite';
 import { useCategories } from '@/hooks/useCategories';
 
+// Estabilizado fuera del componente — evita que FlatList recreé items en cada render
+function renderExploreItem({ item, index }: { item: Listing; index: number }) {
+  return (
+    <View style={styles.gridColumn}>
+      <View
+        style={[
+          styles.gridItem,
+          index % 2 === 0
+            ? { marginLeft: 16, marginRight: 6 }
+            : { marginLeft: 6, marginRight: 16 },
+        ]}
+      >
+        <ListingCard listing={item} variant="compact" style={styles.cardFill} />
+      </View>
+    </View>
+  );
+}
+
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
@@ -91,21 +109,8 @@ export default function ExploreScreen() {
   );
 
   const listings = useMemo(
-    () => data?.pages.flatMap((p) => (p as { data: Listing[] }).data) ?? [],
+    () => data?.pages.flatMap((p) => p.data) ?? [],
     [data],
-  );
-
-  const renderItem = ({ item, index }: { item: Listing; index: number }) => (
-    <View style={styles.gridColumn}>
-      <View style={[
-        styles.gridItem,
-        index % 2 === 0
-          ? { marginLeft: 16, marginRight: 6 }
-          : { marginLeft: 6, marginRight: 16 },
-      ]}>
-        <ListingCard listing={item} variant="compact" style={styles.cardFill} />
-      </View>
-    </View>
   );
 
   const ListHeader = () => (
@@ -317,7 +322,7 @@ export default function ExploreScreen() {
       <FlatList
         key={selectedCategory || 'all'}
         data={listings}
-        renderItem={renderItem}
+        renderItem={renderExploreItem}
         keyExtractor={(item) => item.id}
         numColumns={2}
         style={styles.list}
