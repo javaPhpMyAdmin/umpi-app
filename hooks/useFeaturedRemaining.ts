@@ -2,48 +2,45 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface FeaturedRemaining {
+export interface FeaturedRemaining {
   remaining: number;
   maxFeatured: number;
   activeFeatured: number;
 }
 
-async function fetchFeaturedRemaining(userId: string): Promise<FeaturedRemaining> {
-  const [{ data: subData, error: subError }, { count, error: countError }] =
-    await Promise.all([
-      supabase
-        .from('subscriptions')
-        .select('plan:plan_id(max_featured)')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle(),
-      supabase
-        .from('listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('is_featured', true),
-    ]);
-
-  if (subError) throw subError;
-  if (countError) throw countError;
-
-  const maxFeatured = subData?.plan?.[0]?.max_featured ?? 0;
-  const activeFeatured = count ?? 0;
-
-  return {
-    remaining: Math.max(0, maxFeatured - activeFeatured),
-    maxFeatured,
-    activeFeatured,
-  };
-}
-
-export function useFeaturedRemaining() {
+export function useFeaturedRemaining(planSlug: string | null | undefined) {
   const { user } = useAuth();
 
   return useQuery<FeaturedRemaining>({
-    queryKey: ['featured-remaining', user?.id],
-    queryFn: () => fetchFeaturedRemaining(user!.id),
-    enabled: !!user,
+    queryKey: ['featured-remaining', user?.id, planSlug],
+    queryFn: async () => {
+      const [{ data: plan, error: planError }, { count, error: countError }] =
+        await Promise.all([
+          supabase
+            .from('subscription_plans')
+            .select('max_featured')
+            .eq('slug', planSlug)
+            .maybeSingle(),
+          supabase
+            .from('listings')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user!.id)
+            .eq('is_featured', true),
+        ]);
+
+      if (planError) throw planError;
+      if (countError) throw countError;
+
+      const maxFeatured = plan?.max_featured ?? 0;
+      const activeFeatured = count ?? 0;
+
+      return {
+        remaining: Math.max(0, maxFeatured - activeFeatured),
+        maxFeatured,
+        activeFeatured,
+      };
+    },
+    enabled: !!user && !!planSlug,
     staleTime: 30_000,
   });
 }
