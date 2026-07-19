@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, FlatList, Pressable, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, X, MapPin, DollarSign, Tag, FileText, Plus, Sparkles } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -45,6 +45,21 @@ export default function PublishScreen() {
     profile?.subscription_expires_at != null &&
     new Date(profile.subscription_expires_at) > new Date();
   const [featureToggle, setFeatureToggle] = useState(false);
+  const [condition, setCondition] = useState<'new' | 'used'>('new');
+
+  // Condition picker only for Autos/Motos and Celulares categories
+  const categorySupportsCondition = useMemo(() => {
+    if (!selectedCategory || categories.length === 0) return false;
+    const cat = categories.find(c => c.id === selectedCategory);
+    if (!cat) return false;
+    const name = cat.name.toLowerCase();
+    return name.startsWith('autos') || name.startsWith('celulares');
+  }, [selectedCategory, categories]);
+
+  // Reset condition when category no longer supports it
+  useEffect(() => {
+    if (!categorySupportsCondition) setCondition('new');
+  }, [categorySupportsCondition]);
 
   const editMutation = useEditListing();
   const { data: featured, isPending: featuredPending, error: featuredError, refetch: refetchFeatured } =
@@ -91,15 +106,6 @@ export default function PublishScreen() {
     setFeatureToggle(false);
     locationDetected.current = false;
   }, []);
-
-  // Reset form al enfocar la pantalla (viniendo de otra tab), solo en modo nueva
-  useFocusEffect(
-    useCallback(() => {
-      if (!editMode) {
-        resetForm();
-      }
-    }, [editMode]),
-  );
 
   // Prefill form when edit listing data arrives
   useEffect(() => {
@@ -248,6 +254,7 @@ export default function PublishScreen() {
       location,
       city_id: cityId,
       category_id: isValidUUID.test(selectedCategory) ? selectedCategory : null,
+      condition: categorySupportsCondition ? condition : null,
       images: uploadedUrls,
     };
 
@@ -281,9 +288,8 @@ export default function PublishScreen() {
         .select('id')
         .single();
 
-      setLoading(false);
-
       if (error) {
+        setLoading(false);
         showError('Error', error.message);
       } else {
         queryClient.invalidateQueries({ queryKey: ['listings'] });
@@ -296,7 +302,7 @@ export default function PublishScreen() {
         setImages([]);
 
         if (featureToggle && listingData?.id) {
-          setLoading(true);
+          // Keep loading=true through the feature RPC — no double-submit window
           const { error: rpcError } = await supabase.rpc('feature_listing', {
             p_listing_id: listingData.id,
           });
@@ -310,6 +316,7 @@ export default function PublishScreen() {
           }
           refetchFeatured();
         } else {
+          setLoading(false);
           showSuccess('Exito', 'Publicacion creada');
         }
       }
@@ -406,6 +413,20 @@ export default function PublishScreen() {
             </View>
           )}
         </View>
+
+        {categorySupportsCondition && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Condicion</Text>
+            <View style={styles.priceRow}>
+              <TouchableOpacity style={[styles.priceTypeBtn, condition === 'new' && { backgroundColor: Colors.primary }]} onPress={() => setCondition('new')}>
+                <Text style={[styles.priceTypeText, condition === 'new' && { color: Colors.white }]}>Nuevo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.priceTypeBtn, condition === 'used' && { backgroundColor: Colors.primary }]} onPress={() => setCondition('used')}>
+                <Text style={[styles.priceTypeText, condition === 'used' && { color: Colors.white }]}>Usado</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Ubicacion</Text>

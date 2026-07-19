@@ -42,6 +42,7 @@ export default function ListingDetailScreen() {
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
+  const [contacting, setContacting] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -161,32 +162,39 @@ export default function ListingDetailScreen() {
 
   const handleContact = async () => {
     if (!user) return setShowLoginPrompt(true);
-    if (!listing || user.id === listing.user_id) return;
+    if (!listing || user.id === listing.user_id || contacting) return;
 
-    // Buscar la conversación más reciente (evitar maybeSingle que falla si hay múltiples)
-    const { data: conversations } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('listing_id', listing.id)
-      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    setContacting(true);
+    try {
+      const { data: conversations, error } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('listing_id', listing.id)
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-    const existingConv = conversations?.[0];
-    if (existingConv) {
-      // Si estaba archivada, la reabrimos
-      await supabase.rpc('reopen_conversation', {
-        conv_id: existingConv.id,
-        user_id: user.id,
-      });
-      const name = encodeURIComponent(seller?.full_name || 'Usuario');
-      const avatar = seller?.avatar_url ? encodeURIComponent(seller.avatar_url) : '';
-      router.push(`/chat/${existingConv.id}?otherName=${name}&otherUserId=${listing.user_id}&otherAvatar=${avatar}`);
-    } else {
-      // No se crea la conversación aún — se crea al enviar el primer mensaje
-      const name = encodeURIComponent(seller?.full_name || 'Usuario');
-      const avatar = seller?.avatar_url ? encodeURIComponent(seller.avatar_url) : '';
-      router.push(`/chat/new?listingId=${listing.id}&otherUserId=${listing.user_id}&otherName=${name}&otherAvatar=${avatar}`);
+      if (error) throw error;
+
+      const existingConv = conversations?.[0];
+      if (existingConv) {
+        await supabase.rpc('reopen_conversation', {
+          conv_id: existingConv.id,
+          user_id: user.id,
+        });
+        const name = encodeURIComponent(seller?.full_name || 'Usuario');
+        const avatar = seller?.avatar_url ? encodeURIComponent(seller.avatar_url) : '';
+        router.push(`/chat/${existingConv.id}?otherName=${name}&otherUserId=${listing.user_id}&otherAvatar=${avatar}`);
+      } else {
+        const name = encodeURIComponent(seller?.full_name || 'Usuario');
+        const avatar = seller?.avatar_url ? encodeURIComponent(seller.avatar_url) : '';
+        router.push(`/chat/new?listingId=${listing.id}&otherUserId=${listing.user_id}&otherName=${name}&otherAvatar=${avatar}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar';
+      showError('Error', msg);
+    } finally {
+      setContacting(false);
     }
   };
 
@@ -312,7 +320,7 @@ export default function ListingDetailScreen() {
             ) : (
               <TouchableOpacity style={styles.reviewBtn} onPress={() => setShowModal(true)}>
                 <Star size={16} color={Colors.white} fill={Colors.white} />
-                <Text style={styles.reviewBtnText}>Calificar vendedor</Text>
+                <Text style={styles.reviewBtnText}>Calificar publicador</Text>
               </TouchableOpacity>
             )
           ) : null}
@@ -419,9 +427,13 @@ export default function ListingDetailScreen() {
             <Text style={styles.contactBtnText}>Opciones</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.contactBtn} onPress={handleContact}>
+          <TouchableOpacity
+            style={[styles.contactBtn, contacting && { opacity: 0.6 }]}
+            onPress={handleContact}
+            disabled={contacting}
+          >
             <MessageCircle size={20} color={Colors.white} />
-            <Text style={styles.contactBtnText}>Contactar</Text>
+            <Text style={styles.contactBtnText}>{contacting ? 'Conectando...' : 'Contactar'}</Text>
           </TouchableOpacity>
         )}
       </View>

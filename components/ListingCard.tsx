@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View, Text, Image, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, Star, MoreHorizontal } from 'lucide-react-native';
@@ -12,16 +13,16 @@ interface ListingCardProps {
   onDelete?: () => void;
 }
 
-export function ListingCard({ listing, variant = 'featured', style, onEdit, onDelete }: ListingCardProps) {
+export const ListingCard = memo(function ListingCard({ listing, variant = 'featured', style, onEdit, onDelete }: ListingCardProps) {
   const router = useRouter();
   const isCompact = variant === 'compact';
   const image = listing.images?.[0] || listing.category?.image_url || '';
   const hasActions = !!onEdit || !!onDelete;
 
-  const formatPrice = (price: number | null) => {
-    if (!price) return 'Consultar';
-    return `$${price.toLocaleString('es-AR')}`;
-  };
+  const formattedPrice = useMemo(() => {
+    if (!listing.price) return 'Consultar';
+    return `$${listing.price.toLocaleString('es-AR')}`;
+  }, [listing.price]);
 
   const planBorder = listing.is_featured
     ? {
@@ -53,7 +54,7 @@ export function ListingCard({ listing, variant = 'featured', style, onEdit, onDe
         <Text style={isCompact ? styles.compactTitle : styles.featuredTitle} numberOfLines={isCompact ? 1 : 2} ellipsizeMode="tail">
           {listing.title}
         </Text>
-        <Text style={styles.price}>{formatPrice(listing.price)}</Text>
+        <Text style={styles.price}>{formattedPrice}</Text>
         <View style={styles.metaRow}>
           {(listing.city?.name || listing.location) && (
             <View style={styles.metaLocItem}>
@@ -74,7 +75,7 @@ export function ListingCard({ listing, variant = 'featured', style, onEdit, onDe
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   featured: {

@@ -24,6 +24,7 @@ export interface Listing {
   description: string | null;
   price: number | null;
   price_type: string;
+  condition: 'new' | 'used' | null;
   location: string | null;
   images: string[];
   is_featured: boolean;

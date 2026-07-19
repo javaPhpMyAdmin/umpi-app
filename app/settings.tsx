@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,6 +16,15 @@ export default function SettingsScreen() {
   const [phone, setPhone] = useState(profile?.phone || '');
   const [location, setLocation] = useState(profile?.location || '');
   const [saving, setSaving] = useState(false);
+
+  // Sync form fields when profile loads (async)
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setPhone(profile.phone || '');
+      setLocation(profile.location || '');
+    }
+  }, [profile?.id]);
 
   const handleSave = async () => {
     if (!user) return;

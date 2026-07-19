@@ -46,7 +46,7 @@ export default function AuthCallback() {
       if (url) handleUrl(url);
       else {
         supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session || !cancelled) goHome();
+          if (session && !cancelled) goHome();
           else {
             const t = setTimeout(goHome, 1500);
             cancelled ? clearTimeout(t) : null;
