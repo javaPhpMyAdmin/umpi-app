@@ -1,23 +1,47 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Message } from '@/types';
 
-export function useMessages(conversationId: string | undefined) {
-  return useQuery<Message[]>({
-    queryKey: ['messages', conversationId],
-    queryFn: async () => {
-      if (!conversationId) return [];
+interface MessagesPage {
+  items: Message[];
+  nextCursor: { created_at: string; id: string } | null;
+}
 
-      const { data } = await supabase
+export function useMessages(conversationId: string | undefined) {
+  return useInfiniteQuery<MessagesPage>({
+    queryKey: ['messages', conversationId],
+    queryFn: async ({ pageParam }) => {
+      if (!conversationId) return { items: [], nextCursor: null };
+
+      let query = supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(50 + 1);
 
-      if (!data) return [];
+      if (pageParam) {
+        const cursor = pageParam as { created_at: string; id: string };
+        query = query.or(
+          `and(created_at.lt.${cursor.created_at}),and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`
+        );
+      }
 
-      const msgs = data as Message[];
-      const senderIds = [...new Set(msgs.map((m) => m.sender_id))];
+      const { data } = await query;
+
+      if (!data || data.length === 0) return { items: [], nextCursor: null };
+
+      const hasMore = data.length > 50;
+      const items = hasMore ? data.slice(0, 50) : data;
+      const lastItem = items[items.length - 1];
+      const nextCursor = hasMore
+        ? { created_at: lastItem.created_at, id: lastItem.id }
+        : null;
+
+      // Reverse to show oldest first (we fetched newest first for cursor)
+      const reversed = [...items].reverse() as Message[];
+      const senderIds = [...new Set(reversed.map((m) => m.sender_id))];
 
       if (senderIds.length > 0) {
         const { data: profiles } = await supabase
@@ -26,14 +50,19 @@ export function useMessages(conversationId: string | undefined) {
           .in('id', senderIds);
         const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
 
-        return msgs.map((m) => ({
-          ...m,
-          sender: profileMap.get(m.sender_id),
-        })) as Message[];
+        return {
+          items: reversed.map((m) => ({
+            ...m,
+            sender: profileMap.get(m.sender_id),
+          })) as Message[],
+          nextCursor,
+        };
       }
 
-      return msgs;
+      return { items: reversed, nextCursor };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: null,
     enabled: !!conversationId,
     staleTime: 30_000,
   });
@@ -71,25 +100,52 @@ export function useSendMessage() {
         queryKey: ['messages', conversationId],
       });
 
-      // Snapshot anterior para rollback
-      const previous = queryClient.getQueryData<Message[]>([
+      // Snapshot anterior para rollback (formato infinite query)
+      const previous = queryClient.getQueryData([
         'messages',
         conversationId,
       ]);
 
-      // Insert optimista
-      queryClient.setQueryData<Message[]>(
+      // Insert optimista — append to last page (newest messages)
+      queryClient.setQueryData(
         ['messages', conversationId],
-        (old) => [
-          ...(old || []),
-          {
-            id: `temp-${Date.now()}`,
-            conversation_id: conversationId,
-            sender_id: senderId,
-            content,
-            created_at: new Date().toISOString(),
-          } as Message,
-        ],
+        (old: any) => {
+          if (!old || !old.pages || old.pages.length === 0) {
+            return {
+              pages: [{
+                items: [{
+                  id: `temp-${Date.now()}`,
+                  conversation_id: conversationId,
+                  sender_id: senderId,
+                  content,
+                  created_at: new Date().toISOString(),
+                }],
+                nextCursor: null,
+              }],
+              pageParams: [null],
+            };
+          }
+          const lastPage = old.pages[old.pages.length - 1];
+          return {
+            ...old,
+            pages: [
+              ...old.pages.slice(0, -1),
+              {
+                ...lastPage,
+                items: [
+                  ...lastPage.items,
+                  {
+                    id: `temp-${Date.now()}`,
+                    conversation_id: conversationId,
+                    sender_id: senderId,
+                    content,
+                    created_at: new Date().toISOString(),
+                  },
+                ],
+              },
+            ],
+          };
+        },
       );
 
       return { previous, conversationId };

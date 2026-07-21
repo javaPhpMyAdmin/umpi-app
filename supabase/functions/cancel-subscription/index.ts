@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { checkRateLimit, rateLimitResponse } from '../_shared/rate-limit.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -34,6 +35,17 @@ serve(async (req) => {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       })
+    }
+
+    // --- RATE LIMIT: max 3 cancel attempts per 60 seconds ---
+    const rateLimit = await checkRateLimit(user.id, {
+      functionName: 'cancel-subscription',
+      maxRequests: 3,
+      windowSeconds: 60,
+    })
+    if (!rateLimit.allowed) {
+      console.log(`Rate limited: user=${user.id} function=cancel-subscription`)
+      return rateLimitResponse(rateLimit)
     }
 
     // --- 2. Get user's active subscription ---

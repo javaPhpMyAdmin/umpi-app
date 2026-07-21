@@ -38,7 +38,8 @@
           "backgroundColor": "#FF6B35",
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
@@ -46,10 +47,10 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0f68b42c-409a-4982-9b21-8cae0c76dd4f"
+        "projectId": "32316fad-be5d-4dd0-92d2-237c4f9ce64c"
       }
     },
-    "owner": "chelobat16411",
+    "owner": "chelobat.dev",
     "android": {
       "package": "com.chelobat16411.umpi"
     }

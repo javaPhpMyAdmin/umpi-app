@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Modal, Pressable, RefreshControl } from 'react-native';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, Modal, Pressable, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -9,12 +9,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConversations, useArchiveConversation } from '@/hooks/useConversations';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { UserAvatar } from '@/components/UserAvatar';
+import { Conversation } from '@/types';
 
 export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { data: conversations, isLoading, refetch } = useConversations(user?.id);
+  const convsQuery = useConversations(user?.id);
+  const conversations = convsQuery.data?.pages.flatMap((p) => p.items) ?? [];
   const archiveMutation = useArchiveConversation();
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -30,7 +32,7 @@ export default function MessagesScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    await convsQuery.refetch();
     setRefreshing(false);
   };
 
@@ -38,8 +40,8 @@ export default function MessagesScreen() {
   // pero TanStack Query devuelve caché si aún está fresh
   useFocusEffect(
     useCallback(() => {
-      refetch();
-    }, [refetch])
+      convsQuery.refetch();
+    }, [convsQuery.refetch])
   );
 
   if (!user) {
@@ -74,43 +76,57 @@ export default function MessagesScreen() {
           </View>
           <Text style={styles.headerSubtitle}>De la charla al trato</Text>
         </View>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}>
-        {isLoading ? (
-          [1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} variant="conversation" />)
-        ) : !conversations || conversations.length === 0 ? (
+      <FlatList
+        data={conversations}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item: conv }) => {
+          const otherUserId = conv.user1_id === user?.id ? conv.user2_id : conv.user1_id;
+          return (
+            <TouchableOpacity style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}?otherName=${encodeURIComponent(conv.other_user?.full_name || 'Usuario')}&otherUserId=${otherUserId}&otherAvatar=${conv.other_user?.avatar_url ? encodeURIComponent(conv.other_user.avatar_url) : ''}`)} onLongPress={() => setArchiveTarget({ id: conv.id, name: conv.other_user?.full_name || 'Usuario' })} activeOpacity={0.7}>
+              <UserAvatar url={conv.other_user?.avatar_url} name={conv.other_user?.full_name} size={44} />
+              <View style={styles.convInfo}>
+                <View style={styles.convTop}>
+                  <Text style={styles.convName}>{conv.other_user?.full_name || 'Usuario'}</Text>
+                  {(conv.unread_count ?? 0) > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>{conv.unread_count}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.convListing} numberOfLines={1}>{conv.listing?.title || 'Sin titulo'}</Text>
+                {conv.last_message?.content && (
+                  <Text style={styles.lastMessage} numberOfLines={1}>
+                    {conv.last_message.content}
+                  </Text>
+                )}
+              </View>
+              <ArrowRight size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          );
+        }}
+        ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>No tenes conversaciones aun</Text>
             <Text style={styles.emptySubtext}>Contacta a un vendedor desde cualquier aviso</Text>
           </View>
-        ) : (
-          conversations.map(conv => {
-            const otherUserId = conv.user1_id === user?.id ? conv.user2_id : conv.user1_id;
-            return (
-            <TouchableOpacity key={conv.id} style={styles.conversation} onPress={() => router.push(`/chat/${conv.id}?otherName=${encodeURIComponent(conv.other_user?.full_name || 'Usuario')}&otherUserId=${otherUserId}&otherAvatar=${conv.other_user?.avatar_url ? encodeURIComponent(conv.other_user.avatar_url) : ''}`)} onLongPress={() => setArchiveTarget({ id: conv.id, name: conv.other_user?.full_name || 'Usuario' })} activeOpacity={0.7}>
-            <UserAvatar url={conv.other_user?.avatar_url} name={conv.other_user?.full_name} size={44} />
-            <View style={styles.convInfo}>
-              <View style={styles.convTop}>
-                <Text style={styles.convName}>{conv.other_user?.full_name || 'Usuario'}</Text>
-                {(conv.unread_count ?? 0) > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{conv.unread_count}</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.convListing} numberOfLines={1}>{conv.listing?.title || 'Sin titulo'}</Text>
-              {conv.last_message?.content && (
-                <Text style={styles.lastMessage} numberOfLines={1}>
-                  {conv.last_message.content}
-                </Text>
-              )}
+        }
+        ListFooterComponent={
+          convsQuery.hasNextPage ? (
+            <View style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Cargando más chats...</Text>
             </View>
-            <ArrowRight size={18} color={Colors.textMuted} />
-          </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+          ) : null
+        }
+        onEndReached={() => {
+          if (convsQuery.hasNextPage && !convsQuery.isFetchingNextPage) {
+            convsQuery.fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={conversations.length === 0 ? { flex: 1 } : styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}
+      />
 
       {/* Modal de confirmación para eliminar conversación */}
       <Modal visible={!!archiveTarget} transparent animationType="fade" onRequestClose={() => setArchiveTarget(null)}>

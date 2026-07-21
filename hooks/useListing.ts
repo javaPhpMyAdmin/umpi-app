@@ -11,6 +11,7 @@ export function useListing(id: string | null) {
         .from('listings')
         .select('*, category:category_id(*), city:city_id(*)')
         .eq('id', id)
+        .eq('status', 'active')
         .maybeSingle();
       if (error) throw error;
       return (data || null) as Listing | null;

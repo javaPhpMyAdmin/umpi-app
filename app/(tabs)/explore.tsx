@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,15 +56,15 @@ export default function ExploreScreen() {
   );
   const [showFilters, setShowFilters] = useState(false);
 
-  // Debounce del input de búsqueda (500ms, mínimo 2 caracteres)
-  useEffect(() => {
-    if (inputValue.length === 0) {
+  // Search only on explicit submit (keyboard "search" button or tap)
+  const handleSubmit = useCallback(() => {
+    if (inputValue.trim().length < 2) {
       setDebouncedQuery('');
       return;
     }
-    if (inputValue.length < 2) return; // no buscar con 1 sola letra
-    const timer = setTimeout(() => setDebouncedQuery(inputValue), 500);
-    return () => clearTimeout(timer);
+    setDebouncedQuery(inputValue.trim());
+    // Dismiss keyboard
+    Keyboard.dismiss();
   }, [inputValue]);
 
   // Sincronizar category param cuando se navega desde Inicio
@@ -196,13 +197,14 @@ export default function ExploreScreen() {
             placeholderTextColor={Colors.textMuted}
             value={inputValue}
             onChangeText={setInputValue}
+            onSubmitEditing={handleSubmit}
             returnKeyType="search"
           />
           {isFetching && !isLoading && inputValue.length >= 2 && (
             <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 4 }} />
           )}
           {inputValue.length > 0 && (
-            <TouchableOpacity onPress={() => setInputValue('')}>
+            <TouchableOpacity onPress={() => { setInputValue(''); setDebouncedQuery(''); }}>
               <X size={18} color={Colors.textMuted} />
             </TouchableOpacity>
           )}

@@ -37,12 +37,13 @@ export default function ChatScreen() {
 
   const isNew = id === 'new';
   const conversationId = isNew ? undefined : (id as string);
-  const { data: messages, isLoading, refetch } = useMessages(conversationId);
+  const msgsQuery = useMessages(conversationId);
+  const messages = msgsQuery.data?.pages.flatMap((p) => p.items) ?? [];
   const sendMutation = useSendMessage();
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    await msgsQuery.refetch();
     setRefreshing(false);
   };
 
@@ -107,15 +108,24 @@ export default function ChatScreen() {
         filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
         const newMsg = payload.new as Message;
-        queryClient.setQueryData<Message[]>(['messages', conversationId], (old) => {
-          if (!old) return [newMsg];
-          const exists = old.some(
-            m => m.id === newMsg.id ||
+        // Append to the first page (newest messages) of the infinite query
+        queryClient.setQueryData(['messages', conversationId], (old: any) => {
+          if (!old || !old.pages || old.pages.length === 0) return old;
+          const firstPage = old.pages[0];
+          const exists = firstPage.items.some(
+            (m: Message) => m.id === newMsg.id ||
               (m.sender_id === newMsg.sender_id &&
                m.content === newMsg.content &&
                m.id.startsWith('temp-'))
           );
-          return exists ? old : [...old, newMsg];
+          if (exists) return old;
+          return {
+            ...old,
+            pages: [
+              { ...firstPage, items: [...firstPage.items, newMsg] },
+              ...old.pages.slice(1),
+            ],
+          };
         });
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
         queryClient.invalidateQueries({ queryKey: ['unreadCount'] });
@@ -152,17 +162,23 @@ export default function ChatScreen() {
       // Precargamos el mensaje en cache así la nueva screen monta con datos
       // en vez de mostrar el skeleton. La refetch de fondo se va a dar
       // cuando venza el staleTime (30s) o al recibir un mensaje nuevo via real-time.
-      queryClient.setQueryData<Message[]>(
+      queryClient.setQueryData(
         ['messages', data.conversation_id],
-        [
-          {
-            id: `temp-${Date.now()}`,
-            conversation_id: data.conversation_id,
-            sender_id: user.id,
-            content,
-            created_at: new Date().toISOString(),
-          } as Message,
-        ],
+        {
+          pages: [{
+            items: [
+              {
+                id: `temp-${Date.now()}`,
+                conversation_id: data.conversation_id,
+                sender_id: user.id,
+                content,
+                created_at: new Date().toISOString(),
+              } as Message,
+            ],
+            nextCursor: null,
+          }],
+          pageParams: [null],
+        },
       );
 
       router.replace(
@@ -176,12 +192,19 @@ export default function ChatScreen() {
   const messagesContent = (
     <>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.messages} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          // Load older messages when scrolling near the top
+          if (e.nativeEvent.contentOffset.y < 100 && msgsQuery.hasNextPage && !msgsQuery.isFetchingNextPage) {
+            msgsQuery.fetchNextPage();
+          }
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}>
         {isNew || !conversationId ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>Inicia la conversacion</Text>
           </View>
-        ) : isLoading ? (
+        ) : msgsQuery.isLoading ? (
           <View style={styles.skeletonContainer}>
             <SkeletonBubble align="left" />
             <SkeletonBubble align="right" />
@@ -193,19 +216,26 @@ export default function ChatScreen() {
             <Text style={styles.emptyText}>Inicia la conversacion</Text>
           </View>
         ) : (
-          messages.map((msg, idx) => {
-            const isMe = msg.sender_id === user?.id;
-            return (
-              <View key={msg.id} style={[styles.messageRow, isMe ? styles.messageRowRight : styles.messageRowLeft]}>
-                <View style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
-                  <Text style={[styles.bubbleText, isMe ? { color: Colors.white } : { color: Colors.text }]}>{msg.content}</Text>
-                  <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: Colors.textMuted }]}>
-                    {new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </Text>
-                </View>
+          <>
+            {msgsQuery.isFetchingNextPage && (
+              <View style={{ padding: 8, alignItems: 'center' }}>
+                <Text style={{ color: Colors.textMuted, fontSize: 12 }}>Cargando mensajes anteriores...</Text>
               </View>
-            );
-          })
+            )}
+            {messages.map((msg, idx) => {
+              const isMe = msg.sender_id === user?.id;
+              return (
+                <View key={msg.id} style={[styles.messageRow, isMe ? styles.messageRowRight : styles.messageRowLeft]}>
+                  <View style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
+                    <Text style={[styles.bubbleText, isMe ? { color: Colors.white } : { color: Colors.text }]}>{msg.content}</Text>
+                    <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: Colors.textMuted }]}>
+                      {new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </>
         )}
       </ScrollView>
       <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
@@ -226,7 +256,7 @@ export default function ChatScreen() {
           <ArrowLeft size={24} color={Colors.white} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          {isLoading && !otherProfile ? (
+          {msgsQuery.isLoading && !otherProfile ? (
             <SkeletonHeader />
           ) : (
             <>
@@ -237,7 +267,7 @@ export default function ChatScreen() {
                 backgroundColor="rgba(255,255,255,0.25)"
               />
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {isNew ? headerName : (isLoading && !headerName ? 'Cargando usuario...' : headerName)}
+                {isNew ? headerName : (msgsQuery.isLoading && !headerName ? 'Cargando usuario...' : headerName)}
               </Text>
             </>
           )}
