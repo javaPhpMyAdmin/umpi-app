@@ -35,6 +35,7 @@ export default function ListingDetailScreen() {
 
   const [hasConversation, setHasConversation] = useState<string | null>(null);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [myRating, setMyRating] = useState<number | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
@@ -53,11 +54,13 @@ export default function ListingDetailScreen() {
     if (!listing || !user) {
       setHasConversation(null);
       setHasReviewed(false);
+      setMyRating(null);
       return;
     }
     if (listing.user_id === user.id) {
       setHasConversation(null);
       setHasReviewed(false);
+      setMyRating(null);
       return;
     }
 
@@ -72,6 +75,7 @@ export default function ListingDetailScreen() {
     if (!conversations || conversations.length === 0) {
       setHasConversation(null);
       setHasReviewed(false);
+      setMyRating(null);
       return;
     }
 
@@ -82,7 +86,7 @@ export default function ListingDetailScreen() {
     // Buscar si YA calificó en cualquiera de las conversaciones
     const { data: review } = await supabase
       .from('reviews')
-      .select('id')
+      .select('id, rating')
       .in('conversation_id', convIds)
       .eq('reviewer_id', user.id)
       .maybeSingle();
@@ -90,6 +94,7 @@ export default function ListingDetailScreen() {
     // Setear ambos estados juntos — React batch update, un solo render
     setHasConversation(latestConv.id);
     setHasReviewed(!!review);
+    setMyRating(review?.rating ?? null);
   }, [listing?.id, user?.id]);
 
   // Correr al montar y cada vez que la screen recibe foco (vuelta del chat)
@@ -320,7 +325,21 @@ export default function ListingDetailScreen() {
 
           {user && listing.user_id !== user.id && hasConversation ? (
             hasReviewed ? (
-              <Text style={styles.reviewedText}>Ya calificaste este aviso</Text>
+              <View style={styles.reviewedContainer}>
+                <Text style={styles.reviewedText}>Ya calificaste este aviso</Text>
+                {myRating != null && (
+                  <View style={styles.reviewedStarsRow}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        size={14}
+                        color={star <= myRating ? Colors.star : Colors.textMuted}
+                        fill={star <= myRating ? Colors.star : 'none'}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
             ) : (
               <TouchableOpacity style={styles.reviewBtn} onPress={() => setShowModal(true)}>
                 <Star size={16} color={Colors.white} fill={Colors.white} />
@@ -336,6 +355,7 @@ export default function ListingDetailScreen() {
         onClose={() => setShowModal(false)}
         onSubmit={handleSubmitReview}
         conversationId={hasConversation || ''}
+        myRating={myRating}
       />
 
       <ReviewsListModal
@@ -479,7 +499,9 @@ const styles = StyleSheet.create({
   reviewsLinkText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
   reviewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.secondary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, marginTop: 12 },
   reviewBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
-  reviewedText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', marginTop: 12, textAlign: 'center' },
+  reviewedText: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', textAlign: 'center' },
+  reviewedContainer: { alignItems: 'center', gap: 6, marginTop: 12 },
+  reviewedStarsRow: { flexDirection: 'row', gap: 3 },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: Colors.surface, padding: 16, borderTopWidth: 1, borderTopColor: Colors.border },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, padding: 16, borderRadius: 14 },
   contactBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },

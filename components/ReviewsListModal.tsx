@@ -62,7 +62,7 @@ function EmptyReviews() {
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Star size={24} color={Colors.border} />
+        <Star size={24} color={Colors.textMuted} />
       </View>
       <Text style={styles.emptyTitle}>Sin calificaciones</Text>
       <Text style={styles.emptyDesc}>

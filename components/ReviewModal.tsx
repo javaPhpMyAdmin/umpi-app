@@ -17,12 +17,15 @@ interface ReviewModalProps {
   onClose: () => void;
   onSubmit: (rating: number) => Promise<void>;
   conversationId: string;
+  myRating?: number | null;
 }
 
-export default function ReviewModal({ visible, onClose, onSubmit }: ReviewModalProps) {
+export default function ReviewModal({ visible, onClose, onSubmit, myRating }: ReviewModalProps) {
   const [selectedRating, setSelectedRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const alreadyReviewed = myRating != null && myRating > 0;
 
   const handleSubmit = async () => {
     if (selectedRating < 1 || submitting) return;
@@ -60,42 +63,64 @@ export default function ReviewModal({ visible, onClose, onSubmit }: ReviewModalP
             <X size={20} color={Colors.textMuted} />
           </TouchableOpacity>
 
-          <Text style={styles.title}>Calificar al vendedor</Text>
+          <Text style={styles.title}>
+            {alreadyReviewed ? 'Tu calificación' : 'Calificar al vendedor'}
+          </Text>
 
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity
-                key={star}
-                onPress={() => !submitting && setSelectedRating(star)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              >
-                <Star
-                  size={36}
-                  color={star <= selectedRating ? Colors.star : Colors.border}
-                  fill={star <= selectedRating ? Colors.star : 'none'}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
+          {alreadyReviewed ? (
+            <>
+              <Text style={styles.reviewedLabel}>Ya calificaste esta publicación</Text>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={36}
+                    color={star <= myRating! ? Colors.star : Colors.textMuted}
+                    fill={star <= myRating! ? Colors.star : 'none'}
+                  />
+                ))}
+              </View>
+            </>
+          ) : (
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => !submitting && setSelectedRating(star)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                >
+                  <Star
+                    size={36}
+                    color={star <= selectedRating ? Colors.star : Colors.textMuted}
+                    fill={star <= selectedRating ? Colors.star : 'none'}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {error && <Text style={styles.errorText}>{error}</Text>}
 
-          <TouchableOpacity
-            style={[styles.submitBtn, (selectedRating < 1 || submitting) && styles.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={selectedRating < 1 || submitting}
-            activeOpacity={0.8}
-          >
-            {submitting ? (
-              <ActivityIndicator color={Colors.white} size="small" />
-            ) : (
-              <Text style={styles.submitBtnText}>Enviar calificación</Text>
-            )}
-          </TouchableOpacity>
+          {!alreadyReviewed && (
+            <TouchableOpacity
+              style={[styles.submitBtn, (selectedRating < 1 || submitting) && styles.submitBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={selectedRating < 1 || submitting}
+              activeOpacity={0.8}
+            >
+              {submitting ? (
+                <ActivityIndicator color={Colors.white} size="small" />
+              ) : (
+                <Text style={styles.submitBtnText}>Enviar calificación</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity onPress={handleClose} disabled={submitting} style={styles.cancelBtn}>
-            <Text style={[styles.cancelText, submitting && styles.cancelTextDisabled]}>Cancelar</Text>
+            <Text style={[styles.cancelText, submitting && styles.cancelTextDisabled]}>
+              {alreadyReviewed ? 'Cerrar' : 'Cancelar'}
+            </Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -132,6 +157,12 @@ const styles = StyleSheet.create({
     color: Colors.text,
     marginBottom: 20,
     marginTop: 4,
+  },
+  reviewedLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    marginBottom: 12,
   },
   starsRow: {
     flexDirection: 'row',
