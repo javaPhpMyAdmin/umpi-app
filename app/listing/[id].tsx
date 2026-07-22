@@ -106,14 +106,14 @@ export default function ListingDetailScreen() {
   }, [showImageModal]);
 
   const reviewMutation = useMutation({
-    mutationFn: async ({ rating, comment }: { rating: number; comment: string }) => {
+    mutationFn: async ({ rating }: { rating: number }) => {
       if (!user || !hasConversation || !listing) throw new Error('No se puede calificar');
       const { error } = await supabase.from('reviews').insert({
         conversation_id: hasConversation,
         listing_id: listing.id,
         reviewer_id: user.id,
         rating,
-        comment: comment || null,
+        comment: null,
       });
       if (error) {
         if (error.code === '23505') throw new Error('Ya calificaste a este vendedor.');
@@ -129,8 +129,8 @@ export default function ListingDetailScreen() {
     },
   });
 
-  const handleSubmitReview = async (rating: number, comment: string) => {
-    await reviewMutation.mutateAsync({ rating, comment });
+  const handleSubmitReview = async (rating: number) => {
+    await reviewMutation.mutateAsync({ rating });
   };
 
   const handleEdit = () => {

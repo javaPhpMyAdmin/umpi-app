@@ -53,9 +53,7 @@ function ReviewItem({ item }: { item: ReviewDisplay }) {
         </View>
         <StarRating rating={item.rating} />
       </View>
-      {item.comment ? (
-        <Text style={styles.comment}>{item.comment}</Text>
-      ) : null}
+
     </View>
   );
 }
@@ -264,15 +262,6 @@ const styles = StyleSheet.create({
   starsRow: {
     flexDirection: 'row',
     gap: 2,
-  },
-  comment: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   empty: {
     alignItems: 'center',

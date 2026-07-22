@@ -5,7 +5,6 @@ import {
   Text,
   Modal,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -16,13 +15,12 @@ import { Colors } from '@/constants/colors';
 interface ReviewModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (rating: number, comment: string) => Promise<void>;
+  onSubmit: (rating: number) => Promise<void>;
   conversationId: string;
 }
 
 export default function ReviewModal({ visible, onClose, onSubmit }: ReviewModalProps) {
   const [selectedRating, setSelectedRating] = useState(0);
-  const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +29,7 @@ export default function ReviewModal({ visible, onClose, onSubmit }: ReviewModalP
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(selectedRating, comment.trim());
+      await onSubmit(selectedRating);
       reset();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al enviar la calificación. Intentalo de nuevo.');
@@ -48,7 +46,6 @@ export default function ReviewModal({ visible, onClose, onSubmit }: ReviewModalP
 
   const reset = () => {
     setSelectedRating(0);
-    setComment('');
     setError(null);
   };
 
@@ -83,19 +80,6 @@ export default function ReviewModal({ visible, onClose, onSubmit }: ReviewModalP
           </View>
 
           {error && <Text style={styles.errorText}>{error}</Text>}
-
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Comentario (opcional)"
-            placeholderTextColor={Colors.textMuted}
-            multiline
-            maxLength={500}
-            value={comment}
-            onChangeText={setComment}
-            editable={!submitting}
-            textAlignVertical="top"
-          />
-          <Text style={styles.charCount}>{comment.length}/500</Text>
 
           <TouchableOpacity
             style={[styles.submitBtn, (selectedRating < 1 || submitting) && styles.submitBtnDisabled]}
@@ -159,24 +143,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 12,
-  },
-  commentInput: {
-    width: '100%',
-    minHeight: 100,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 14,
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  charCount: {
-    width: '100%',
-    textAlign: 'right',
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginBottom: 16,
   },
   submitBtn: {
     width: '100%',
