@@ -62,10 +62,12 @@ export const ListingCard = memo(function ListingCard({ listing, variant = 'featu
               <Text style={styles.metaText} numberOfLines={1}>{listing.city?.name || listing.location}</Text>
             </View>
           )}
-          <View style={styles.metaRatingItem}>
-            <Star size={12} color={Colors.star} fill={Colors.star} />
-            <Text style={styles.metaText}>{listing.rating}</Text>
-          </View>
+          {listing.rating != null && (
+            <View style={styles.metaRatingItem}>
+              <Star size={12} color={Colors.star} fill={Colors.star} />
+              <Text style={styles.metaText}>{listing.rating}</Text>
+            </View>
+          )}
         </View>
         {listing.user && (
           <View style={styles.userRow}>

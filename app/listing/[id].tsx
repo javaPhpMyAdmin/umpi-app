@@ -265,7 +265,7 @@ export default function ListingDetailScreen() {
             )}
             <View style={styles.metaItem}>
               <Star size={14} color={Colors.star} fill={Colors.star} />
-              <Text style={styles.metaText}>{listing.rating}</Text>
+              <Text style={styles.metaText}>{listing.rating != null ? listing.rating : '—'}</Text>
               <Text style={styles.metaText}>({listing.reviews_count})</Text>
             </View>
             <View style={styles.metaItem}>
@@ -295,8 +295,12 @@ export default function ListingDetailScreen() {
                   <View style={styles.sellerInfo}>
                     <Text style={styles.sellerName}>{seller?.full_name || 'Usuario'}</Text>
                     <View style={styles.sellerMeta}>
-                      <Star size={12} color={Colors.star} fill={Colors.star} />
-                      <Text style={styles.sellerMetaText}>{seller?.rating?.toFixed(1) || '5.0'}</Text>
+                      {seller?.rating != null && (
+                        <>
+                          <Star size={12} color={Colors.star} fill={Colors.star} />
+                          <Text style={styles.sellerMetaText}>{seller.rating.toFixed(1)}</Text>
+                        </>
+                      )}
                       <TouchableOpacity
                         style={styles.reviewsLink}
                         onPress={() => setShowReviewsModal(true)}

@@ -184,8 +184,14 @@ export default function ProfileScreen() {
             <Text style={styles.profileName}>{profile?.full_name || 'Usuario'}</Text>
             <Text style={styles.profileEmail}>{user?.email}</Text>
             <View style={styles.ratingRow}>
-              <Star size={16} color={Colors.star} fill={Colors.star} />
-              <Text style={styles.ratingText}>{profile?.rating?.toFixed(1) || '5.0'}</Text>
+              {profile?.rating != null ? (
+                <>
+                  <Star size={16} color={Colors.star} fill={Colors.star} />
+                  <Text style={styles.ratingText}>{profile.rating.toFixed(1)}</Text>
+                </>
+              ) : (
+                <Text style={[styles.ratingText, { color: Colors.textMuted }]}>Sin calificaciones aún</Text>
+              )}
             </View>
           </View>
         </View>
