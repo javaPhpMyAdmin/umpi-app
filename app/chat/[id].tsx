@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types';
 import { showError } from '@/lib/toast';
 import { UserAvatar } from '@/components/UserAvatar';
+import { MessageTick } from '@/components/MessageTick';
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -47,24 +48,32 @@ export default function ChatScreen() {
     setRefreshing(false);
   };
 
-  // Obtener el listing_id para conversaciones existentes (con caché de TanStack Query)
-  const { data: convListingId } = useQuery({
+  // Obtener el listing_id y read timestamps para conversaciones existentes
+  const { data: convData } = useQuery({
     queryKey: ['conversation-listing', conversationId],
     queryFn: async () => {
       if (!conversationId) return null;
       const { data } = await supabase
         .from('conversations')
-        .select('listing_id')
+        .select('listing_id, user1_id, user2_id, user1_last_read_at, user2_last_read_at')
         .eq('id', conversationId)
         .maybeSingle();
-      return data?.listing_id ?? null;
+      return data;
     },
     enabled: !!conversationId,
     staleTime: 120_000,
   });
 
-  const activeListingId = isNew ? (listingId as string) : convListingId;
+  const activeListingId = isNew ? (listingId as string) : convData?.listing_id;
   const { data: listing, isLoading: listingLoading } = useListing(activeListingId);
+
+  // Compute other user's last_read_at for tick rendering
+  const otherUserLastReadAt = useMemo(() => {
+    if (!convData || !user) return null;
+    return convData.user1_id === user.id
+      ? convData.user2_last_read_at
+      : convData.user1_last_read_at;
+  }, [convData, user]);
 
   // Nombre y avatar del otro usuario
   const otherProfile = useMemo(() => {
@@ -228,9 +237,19 @@ export default function ChatScreen() {
                 <View key={msg.id} style={[styles.messageRow, isMe ? styles.messageRowRight : styles.messageRowLeft]}>
                   <View style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
                     <Text style={[styles.bubbleText, isMe ? { color: Colors.white } : { color: Colors.text }]}>{msg.content}</Text>
-                    <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: Colors.textMuted }]}>
-                      {new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                    </Text>
+                    <View style={styles.bubbleFooter}>
+                      <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: Colors.textMuted }]}>
+                        {new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                      </Text>
+                      {isMe && (
+                        <MessageTick
+                          isRead={Boolean(
+                            otherUserLastReadAt &&
+                              new Date(msg.created_at) <= new Date(otherUserLastReadAt)
+                          )}
+                        />
+                      )}
+                    </View>
                   </View>
                 </View>
               );
@@ -390,6 +409,7 @@ const styles = StyleSheet.create({
   bubbleRight: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
   bubbleText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   bubbleTime: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
+  bubbleFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
   skeletonContainer: { gap: 12, paddingTop: 8 },
   skeletonBubble: { width: '55%', height: 48, borderRadius: 16 },
   skeletonLeft: { backgroundColor: Colors.border, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },

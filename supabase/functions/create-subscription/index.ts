@@ -7,11 +7,21 @@ const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 
@@ -21,7 +31,7 @@ serve(async (req) => {
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -33,7 +43,7 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -52,7 +62,7 @@ serve(async (req) => {
     if (!userEmail) {
       return new Response(JSON.stringify({ error: 'User email not found' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -61,7 +71,7 @@ serve(async (req) => {
     if (!planId) {
       return new Response(JSON.stringify({ error: 'plan_id is required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -85,7 +95,7 @@ serve(async (req) => {
         JSON.stringify({ error: 'User already has an active subscription' }),
         {
           status: 400,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       )
     }
@@ -100,7 +110,7 @@ serve(async (req) => {
     if (planError || !plan) {
       return new Response(JSON.stringify({ error: 'Plan not found' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -112,7 +122,7 @@ serve(async (req) => {
     if (!mpAccessToken) {
       return new Response(JSON.stringify({ error: 'MP_ACCESS_TOKEN not configured' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -161,11 +171,26 @@ serve(async (req) => {
         details: mpData,
       }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // --- 7. Return init_point, preapproval_id, and external_reference ---
+    // --- 7. Save subscription row in DB so sync-subscription can find it ---
+    const { error: insertError } = await supabaseAdmin
+      .from('subscriptions')
+      .insert({
+        user_id: user.id,
+        plan_id: planId,
+        mp_preapproval_id: mpData.id,
+        status: 'pending',
+        started_at: new Date().toISOString(),
+      })
+
+    if (insertError) {
+      console.error('create-subscription: failed to insert subscription row:', insertError)
+    }
+
+    // --- 8. Return init_point, preapproval_id, and external_reference ---
     return new Response(
       JSON.stringify({
         init_point: mpData.init_point,
@@ -174,7 +199,7 @@ serve(async (req) => {
       }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
   } catch (error) {
@@ -183,7 +208,7 @@ serve(async (req) => {
       JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
   }

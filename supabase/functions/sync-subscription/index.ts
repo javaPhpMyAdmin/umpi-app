@@ -7,11 +7,20 @@ const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 
@@ -21,7 +30,7 @@ serve(async (req) => {
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -33,7 +42,7 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -48,12 +57,11 @@ serve(async (req) => {
       return rateLimitResponse(rateLimit)
     }
 
-    // --- 2. Find user's active subscription ---
+    // --- 2. Find user's subscription with MP preapproval ID (any status) ---
     const { data: subscriptions, error: subError } = await supabaseAdmin
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'active')
       .not('mp_preapproval_id', 'is', null)
       .not('mp_preapproval_id', 'eq', '')
       .order('started_at', { ascending: false })
@@ -65,7 +73,7 @@ serve(async (req) => {
         reason: 'No active subscription found for this user',
       }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -79,7 +87,7 @@ serve(async (req) => {
         reason: 'Subscription has no MP preapproval ID',
       }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -88,7 +96,7 @@ serve(async (req) => {
     if (!mpAccessToken) {
       return new Response(JSON.stringify({ error: 'MP_ACCESS_TOKEN not configured' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -106,7 +114,7 @@ serve(async (req) => {
       console.error('sync-subscription: MP API error:', mpError)
       return new Response(JSON.stringify({ error: 'Error al consultar MercadoPago' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -198,7 +206,7 @@ serve(async (req) => {
       next_billing_date: preapproval.next_billing_date,
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
     console.error('sync-subscription error:', error)
@@ -206,7 +214,7 @@ serve(async (req) => {
       JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
   }
