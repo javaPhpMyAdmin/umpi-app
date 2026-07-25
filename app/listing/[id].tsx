@@ -4,7 +4,7 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowD
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X, ShieldAlert } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X, ShieldAlert, Award } from 'lucide-react-native';
 import { GestureHandlerRootView, ScrollView as GHSscrollView } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -324,6 +324,18 @@ export default function ListingDetailScreen() {
               )}
           </View>
 
+          {(seller?.rating || 0) >= 4 && (seller?.reviews_count || 0) > 0 && (
+            <View style={styles.trustedBadge}>
+              <View style={styles.trustedIcon}>
+                <Award size={18} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.trustedTitle}>Publicador Confiable</Text>
+                <Text style={styles.trustedSubtitle}>Destacado por la comunidad</Text>
+              </View>
+            </View>
+          )}
+
           {user && listing.user_id !== user.id && hasConversation ? (
             hasReviewed ? (
               <View style={styles.reviewedContainer}>
@@ -508,6 +520,10 @@ const styles = StyleSheet.create({
   sellerSkeletonName: { height: 15, borderRadius: 6, width: '45%', backgroundColor: Colors.borderLight },
   sellerSkeletonMeta: { height: 12, borderRadius: 6, width: '55%', backgroundColor: Colors.borderLight, marginTop: 6 },
   description: { fontSize: 14, color: Colors.textSecondary, lineHeight: 22 },
+  trustedBadge: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, padding: 12, backgroundColor: Colors.secondaryContainer || '#E8DEF8', borderRadius: 12 },
+  trustedIcon: { backgroundColor: Colors.white, padding: 8, borderRadius: 8 },
+  trustedTitle: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  trustedSubtitle: { fontSize: 12, color: Colors.textSecondary },
   sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   sellerInfo: { flex: 1 },
   sellerName: { fontSize: 15, fontWeight: '700', color: Colors.text },
