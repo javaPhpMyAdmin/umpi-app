@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/types';
 
-WebBrowser.maybeCompleteAuthSession();
+// Configure native Google Sign-In (must be called before any use)
+if (Platform.OS !== 'web') {
+  GoogleSignin.configure({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    offlineAccess: false,
+  });
+}
 
 interface AuthContextType {
   user: User | null;
@@ -49,7 +54,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data) {
       setProfile(data as Profile);
     } else {
-      // No hay perfil aún → crearlo desde metadata del provider (Google, etc.)
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.user_metadata) {
         const fullName = user.user_metadata.full_name || user.user_metadata.name || user.email?.split('@')[0] || 'Usuario';
@@ -59,7 +63,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: fullName,
           avatar_url: avatarUrl,
         });
-        // refrescar
         const { data: newProfile } = await supabase
           .from('profiles')
           .select('*')
@@ -101,60 +104,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const isWeb = Platform.OS === 'web';
-    const redirectUrl = isWeb ? `${window.location.origin}/` : Linking.createURL('auth/callback');
+    try {
+      if (Platform.OS !== 'web') {
+        // Native: Google Sign-In → idToken → Supabase session. No redirects.
+        await GoogleSignin.hasPlayServices();
+        const userInfo = await GoogleSignin.signIn();
+        const idToken = userInfo.data?.idToken || (userInfo as any).idToken;
+        if (!idToken) return { error: new Error('No ID token from Google') };
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: redirectUrl },
-    });
-    if (error) return { error };
+        const { error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+        });
+        return { error };
+      }
 
-    if (!data?.url) return { error: new Error('No auth URL') };
-
-    if (isWeb) {
+      // Web: Supabase OAuth redirect
+      const redirectUrl = `${window.location.origin}/`;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: redirectUrl },
+      });
+      if (error) return { error };
+      if (!data?.url) return { error: new Error('No auth URL') };
       window.location.href = data.url;
       return { error: null };
+    } catch (e: any) {
+      return { error: e };
     }
-
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-    if (result.type === 'success' && result.url) {
-      // Intento 1: PKCE flow — code en query string (?code=xxx)
-      const codeMatch = result.url.match(/[?&]code=([^&]+)/);
-      if (codeMatch) {
-        try {
-          await supabase.auth.exchangeCodeForSession(decodeURIComponent(codeMatch[1]));
-        } catch (e) {
-          // Silently fail - fallback to implicit
-        }
-      } else {
-        // Intento 2: Implicit flow — tokens en el fragmento (#access_token=xxx&refresh_token=yyy)
-        const fragment = result.url.split('#')[1];
-        if (fragment) {
-          const fragmentParams: Record<string, string> = {};
-          fragment.split('&').forEach(pair => {
-            const [k, v] = pair.split('=');
-            if (k && v) fragmentParams[k] = decodeURIComponent(v);
-          });
-          if (fragmentParams.access_token) {
-            try {
-              await supabase.auth.setSession({
-                access_token: fragmentParams.access_token,
-                refresh_token: fragmentParams.refresh_token || '',
-              });
-            } catch (e) {
-              // Silently fail
-            }
-          }
-        }
-      }
-    }
-
-    // Verificar sesión después
-    await new Promise(r => setTimeout(r, 500));
-
-    return { error: null };
   };
 
   const refreshSession = async () => {
@@ -180,6 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (Platform.OS !== 'web') {
+      try { await GoogleSignin.signOut(); } catch {}
+    }
     await supabase.auth.signOut();
     setProfile(null);
   };

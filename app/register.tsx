@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { ArrowLeft, Eye, EyeOff, CheckCircle } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { showError } from '@/lib/toast';
+import { validatePassword } from '@/lib/validation';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 
 export default function RegisterScreen() {
@@ -19,15 +20,26 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const strength = useMemo(() => validatePassword(password), [password]);
+
   const handleRegister = async () => {
     if (!fullName.trim() || !email.trim() || !password.trim()) return showError('Error', 'Completa todos los campos');
-    if (password.length < 6) return showError('Error', 'La contrasena debe tener al menos 6 caracteres');
+    if (!strength.valid) return showError('Error', 'La contraseña no cumple los requisitos de seguridad');
     setLoading(true);
     const { error } = await signUp(email, password, fullName);
     setLoading(false);
     if (error) showError('Error', error.message);
     else setShowSuccess(true);
   };
+
+  const getBarColor = (index: number) => {
+    if (index >= strength.score) return Colors.border || '#E0E0E0';
+    if (strength.score <= 1) return '#EF4444'; // red
+    if (strength.score === 2) return '#F59E0B'; // yellow
+    return '#22C55E'; // green
+  };
+
+  const getCheckColor = (passed: boolean) => passed ? '#22C55E' : Colors.textMuted;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
@@ -40,11 +52,34 @@ export default function RegisterScreen() {
       <TextInput style={styles.input} placeholder="Nombre completo" placeholderTextColor={Colors.textMuted} value={fullName} onChangeText={setFullName} />
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor={Colors.textMuted} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
       <View style={styles.passwordRow}>
-        <TextInput style={styles.passwordInput} placeholder="Contrasena" placeholderTextColor={Colors.textMuted} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
+        <TextInput style={styles.passwordInput} placeholder="Contraseña" placeholderTextColor={Colors.textMuted} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
           {showPassword ? <EyeOff size={20} color={Colors.textMuted} /> : <Eye size={20} color={Colors.textMuted} />}
         </TouchableOpacity>
       </View>
+
+      {/* Password Strength Indicator */}
+      {password.length > 0 && (
+        <View style={styles.strengthContainer}>
+          {/* Bars */}
+          <View style={styles.barsRow}>
+            {[0, 1, 2, 3].map((i) => (
+              <View key={i} style={[styles.bar, { backgroundColor: getBarColor(i) }]} />
+            ))}
+          </View>
+          {/* Checks */}
+          {strength.checks.map((check, i) => (
+            <View key={i} style={styles.checkRow}>
+              <Text style={[styles.checkDot, { color: getCheckColor(check.passed) }]}>
+                {check.passed ? '✓' : '○'}
+              </Text>
+              <Text style={[styles.checkLabel, { color: getCheckColor(check.passed) }]}>
+                {check.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleRegister} disabled={loading}>
         <Text style={styles.btnText}>{loading ? 'Creando...' : 'Registrarme'}</Text>
@@ -73,8 +108,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '800', color: Colors.text },
   subtitle: { fontSize: 14, color: Colors.textMuted, marginTop: 4, marginBottom: 24 },
   input: { backgroundColor: Colors.surface, padding: 14, borderRadius: 14, fontSize: 15, color: Colors.text, marginBottom: 12 },
-  passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 14, borderRadius: 14, marginBottom: 12 },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 14, borderRadius: 14, marginBottom: 8 },
   passwordInput: { flex: 1, paddingVertical: 14, fontSize: 15, color: Colors.text },
+  strengthContainer: { marginBottom: 12 },
+  barsRow: { flexDirection: 'row', gap: 4, marginBottom: 8 },
+  bar: { flex: 1, height: 4, borderRadius: 2 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  checkDot: { fontSize: 12, width: 16 },
+  checkLabel: { fontSize: 12 },
   btn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },

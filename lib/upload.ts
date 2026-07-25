@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { SaveFormat, ImageManipulator } from 'expo-image-manipulator';
 import { supabase } from './supabase';
 
 /**
@@ -45,13 +45,15 @@ export async function uploadImage(uri: string, userId: string): Promise<string> 
   // Comprimir y redimensionar la imagen antes de subir (ahorra espacio + ancho de banda)
   let processedUri = uri;
   try {
-    const result = await manipulateAsync(
-      uri,
-      [{ resize: { width: 1200 } }],
-      { compress: 0.8, format: SaveFormat.JPEG },
-    );
+    const context = ImageManipulator.manipulate(uri);
+    context.resize({ width: 1200 });
+    const rendered = await context.renderAsync();
+    const result = await rendered.saveAsync({
+      format: SaveFormat.WEBP,
+      compress: 0.82,
+    });
     processedUri = result.uri;
-    contentType = 'image/jpeg'; // la compresión convierte a JPEG
+    contentType = 'image/webp';
   } catch {
     // Si falla la manipulación, subir la original
     console.warn('Image manipulation failed, using original');
