@@ -4,7 +4,7 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowD
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X, ShieldAlert } from 'lucide-react-native';
 import { GestureHandlerRootView, ScrollView as GHSscrollView } from 'react-native-gesture-handler';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,7 +27,7 @@ export default function ListingDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const imageHeight = Math.min(screenHeight * 0.35, 340);
   const modalImageSize = Math.min(screenWidth * 0.95, 480);
   const { data: listing, isLoading } = useListing(id as string);
@@ -48,6 +48,7 @@ export default function ListingDetailScreen() {
   const queryClient = useQueryClient();
 
   const isOwner = !!user && !!listing && listing.user_id === user.id;
+  const isAdmin = profile?.is_admin === true;
   const deleteMutation = useDeleteListing();
 
   const checkConversationAndReview = useCallback(async () => {
@@ -450,6 +451,24 @@ export default function ListingDetailScreen() {
             <MoreHorizontal size={20} color={Colors.white} />
             <Text style={styles.contactBtnText}>Opciones</Text>
           </TouchableOpacity>
+        ) : isAdmin ? (
+          <View style={styles.adminBottomBar}>
+            <TouchableOpacity
+              style={[styles.contactBtn, { flex: 1, marginRight: 8 }, contacting && { opacity: 0.6 }]}
+              onPress={handleContact}
+              disabled={contacting}
+            >
+              <MessageCircle size={20} color={Colors.white} />
+              <Text style={styles.contactBtnText}>{contacting ? 'Conectando...' : 'Contactar'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.adminDeleteBtn}
+              onPress={() => setShowDeleteConfirm(true)}
+            >
+              <ShieldAlert size={20} color={Colors.white} />
+              <Text style={styles.contactBtnText}>Admin</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <TouchableOpacity
             style={[styles.contactBtn, contacting && { opacity: 0.6 }]}
@@ -506,6 +525,8 @@ const styles = StyleSheet.create({
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, padding: 16, borderRadius: 14 },
   contactBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
   ownerMenuBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FF7A45', padding: 16, borderRadius: 14 },
+  adminBottomBar: { flexDirection: 'row', alignItems: 'center', width: '100%' },
+  adminDeleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.error, padding: 16, borderRadius: 14 },
   unavailable: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 8 },
   unavailableTitle: { fontSize: 20, fontWeight: '800', color: Colors.text, textAlign: 'center' },
   unavailableText: { fontSize: 14, color: Colors.textMuted, textAlign: 'center' },
