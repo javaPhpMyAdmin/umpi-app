@@ -13,7 +13,7 @@ import ActionSheet from '@/components/ActionSheet';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 import { showError, showSuccess } from '@/lib/toast';
 import { supabase } from '@/lib/supabase';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { RefreshCw } from 'lucide-react-native';
 
@@ -28,6 +28,15 @@ export default function ProfileScreen() {
   const deleteMutation = useDeleteListing();
   const [syncing, setSyncing] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [totalViews, setTotalViews] = useState(0);
+
+  // Fetch total views
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.rpc('get_user_views', { p_user_id: user.id })
+      .then(({ data }) => { if (data != null) setTotalViews(data as number); })
+      .catch(() => {});
+  }, [user?.id]);
   const [isCancelling, setIsCancelling] = useState(false);
 
   // Refresh profile and listings every time this screen is focused
@@ -198,6 +207,11 @@ export default function ProfileScreen() {
 
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
+            <Text style={styles.statValue}>{totalViews.toLocaleString('es-AR')}</Text>
+            <Text style={styles.statLabel}>Vistas</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}>
             <Text style={styles.statValue}>{myListings.length}</Text>
             <Text style={styles.statLabel}>Avisos</Text>
           </View>
@@ -205,13 +219,6 @@ export default function ProfileScreen() {
           <View style={styles.statBox}>
             <Text style={styles.statValue}>{profile?.reviews_count || 0}</Text>
             <Text style={styles.statLabel}>Calificaciones</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>
-              {getSubscriptionLabel(profile?.subscription_type || 'none')}
-            </Text>
-            <Text style={styles.statLabel}>Suscripcion</Text>
           </View>
         </View>
 

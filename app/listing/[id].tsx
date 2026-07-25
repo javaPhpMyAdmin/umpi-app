@@ -101,6 +101,14 @@ export default function ListingDetailScreen() {
   // Correr al montar y cada vez que la screen recibe foco (vuelta del chat)
   useFocusEffect(() => { checkConversationAndReview(); });
 
+  // Record view (fire-and-forget)
+  useEffect(() => {
+    if (!listing?.id) return;
+    supabase.rpc('record_listing_view', { p_listing_id: listing.id })
+      .then(() => {})
+      .catch(() => {});
+  }, [listing?.id]);
+
   // Android back button closes image modal instead of navigating back
   useEffect(() => {
     if (!showImageModal) return;
