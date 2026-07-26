@@ -7,6 +7,7 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { showError } from '@/lib/toast';
 import { validatePassword } from '@/lib/validation';
+import { isDisposableEmail } from '@/lib/blockedEmails';
 import BottomSheetDialog from '@/components/BottomSheetDialog';
 
 export default function RegisterScreen() {
@@ -19,11 +20,21 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  // Honeypot — bots auto-fill this, humans never see it
+  const [website, setWebsite] = useState('');
 
   const strength = useMemo(() => validatePassword(password), [password]);
 
   const handleRegister = async () => {
+    // Honeypot: bots auto-fill hidden fields, humans never touch them
+    if (website) return;
+
     if (!fullName.trim() || !email.trim() || !password.trim()) return showError('Error', 'Completa todos los campos');
+
+    if (isDisposableEmail(email)) {
+      return showError('Error', 'No se permiten emails temporales. Usá tu correo real.');
+    }
+
     if (!strength.valid) return showError('Error', 'La contraseña no cumple los requisitos de seguridad');
     setLoading(true);
     const { error } = await signUp(email, password, fullName);
@@ -81,6 +92,18 @@ export default function RegisterScreen() {
         </View>
       )}
 
+      {/* Honeypot — invisible to humans, bots auto-fill it */}
+      <TextInput
+        style={styles.honeypot}
+        value={website}
+        onChangeText={setWebsite}
+        autoComplete="off"
+        textContentType="none"
+        importantForAutofill="no"
+        aria-hidden
+        accessible={false}
+      />
+
       <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleRegister} disabled={loading}>
         <Text style={styles.btnText}>{loading ? 'Creando...' : 'Registrarme'}</Text>
       </TouchableOpacity>
@@ -111,6 +134,7 @@ const styles = StyleSheet.create({
   passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 14, borderRadius: 14, marginBottom: 8 },
   passwordInput: { flex: 1, paddingVertical: 14, fontSize: 15, color: Colors.text },
   strengthContainer: { marginBottom: 12 },
+  honeypot: { position: 'absolute', left: -9999, opacity: 0, height: 0, width: 0 },
   barsRow: { flexDirection: 'row', gap: 4, marginBottom: 8 },
   bar: { flex: 1, height: 4, borderRadius: 2 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
