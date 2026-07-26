@@ -338,7 +338,11 @@ export default function ListingDetailScreen() {
                 <Award size={18} color={Colors.primary} />
               </View>
               <View>
-                <Text style={styles.trustedTitle}>Publicador Confiable</Text>
+                <Text style={styles.trustedTitle}>
+                  Publicador Confiable{' '}
+                  <Star size={12} color={Colors.star} fill={Colors.star} />
+                  {' '}{seller?.rating?.toFixed(1)}
+                </Text>
                 <Text style={styles.trustedSubtitle}>Destacado por la comunidad</Text>
               </View>
             </View>
