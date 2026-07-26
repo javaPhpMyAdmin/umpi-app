@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Session, User } from '@supabase/supabase-js';
@@ -21,6 +21,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signUpWithEmail: (email: string, fullName: string) => Promise<{ error: any }>;
+  sendMagicLink: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
@@ -34,16 +36,22 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => ({ error: null }),
   signInWithGoogle: async () => ({ error: null }),
   signUp: async () => ({ error: null }),
+  signUpWithEmail: async () => ({ error: null }),
+  sendMagicLink: async () => ({ error: null }),
   signOut: async () => {},
   refreshProfile: async () => {},
   refreshSession: async () => false,
 });
+
+// Module-level store for pending profile name (survives across the magic link flow)
+let pendingProfileName: string | null = null;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const initialSessionChecked = useRef(false);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -54,15 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data) {
       setProfile(data as Profile);
     } else {
+      // Profile doesn't exist yet — create it
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.user_metadata) {
-        const fullName = user.user_metadata.full_name || user.user_metadata.name || user.email?.split('@')[0] || 'Usuario';
+        const fullName = pendingProfileName
+          || user.user_metadata.full_name
+          || user.user_metadata.name
+          || user.email?.split('@')[0]
+          || 'Usuario';
         const avatarUrl = user.user_metadata.avatar_url || user.user_metadata.picture || null;
         await supabase.from('profiles').upsert({
           id: userId,
           full_name: fullName,
           avatar_url: avatarUrl,
         });
+        pendingProfileName = null;
         const { data: newProfile } = await supabase
           .from('profiles')
           .select('*')
@@ -80,8 +94,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         fetchProfile(session.user.id);
       }
+      initialSessionChecked.current = true;
       setIsLoading(false);
     }).catch(() => {
+      initialSessionChecked.current = true;
       setIsLoading(false);
     });
 
@@ -156,6 +172,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  /**
+   * Magic Link registration — sends OTP email for passwordless signup.
+   * Stores the name so fetchProfile can create the profile after auth.
+   */
+  const signUpWithEmail = async (email: string, fullName: string) => {
+    pendingProfileName = fullName;
+
+    // Try signInWithOtp first (works if user already exists)
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: 'umpi://confirm-email' },
+    });
+
+    if (error) {
+      // User doesn't exist — create account first, then send OTP
+      const tempPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password: tempPassword,
+        options: { data: { full_name: fullName } },
+      });
+
+      if (signUpError && !signUpError.message.includes('already registered')) {
+        return { error: signUpError };
+      }
+
+      // Send OTP to the newly created (unconfirmed) user
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: 'umpi://confirm-email' },
+      });
+      if (otpError) return { error: otpError };
+    }
+
+    return { error: null };
+  };
+
+  /**
+   * Magic Link login — sends OTP email for existing users.
+   */
+  const sendMagicLink = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: 'umpi://confirm-email' },
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     if (Platform.OS !== 'web') {
       try { await GoogleSignin.signOut(); } catch {}
@@ -169,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, isLoading, signIn, signInWithGoogle, signUp, signOut, refreshProfile, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, profile, isLoading, signIn, signInWithGoogle, signUp, signUpWithEmail, sendMagicLink, signOut, refreshProfile, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );
