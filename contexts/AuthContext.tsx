@@ -75,6 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: userId,
           full_name: fullName,
           avatar_url: avatarUrl,
+          subscription_status: 'trial',
+          trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         });
         pendingProfileName = null;
         const { data: newProfile } = await supabase

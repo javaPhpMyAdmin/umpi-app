@@ -191,6 +191,12 @@ export default function ProfileScreen() {
           <UserAvatar url={profile?.avatar_url} name={profile?.full_name} size={56} />
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{profile?.full_name || 'Usuario'}</Text>
+            {/* Premium Trial Badge */}
+            {profile?.subscription_status === 'trial' && profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date() && (
+              <View style={styles.trialBadge}>
+                <Text style={styles.trialBadgeText}>🔬 Premium Trial</Text>
+              </View>
+            )}
             <Text style={styles.profileEmail}>{user?.email}</Text>
             <View style={styles.ratingRow}>
               {profile?.rating != null ? (
@@ -403,6 +409,8 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 22, fontWeight: '800', color: Colors.white },
   profileInfo: { flex: 1 },
   profileName: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  trialBadge: { backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start', marginTop: 4 },
+  trialBadgeText: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
   profileEmail: { fontSize: 13, color: Colors.textMuted, marginTop: 2 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   ratingText: { fontSize: 14, fontWeight: '600', color: Colors.star },
