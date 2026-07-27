@@ -16,6 +16,7 @@ import { showError, showSuccess } from '@/lib/toast';
 import { useListing } from '@/hooks/useListing';
 import { useEditListing } from '@/hooks/useListings';
 import { useFeaturedRemaining } from '@/hooks/useFeaturedRemaining';
+import { hasActiveBenefits, getMaxImages, getEffectivePlan } from '@/lib/subscription';
 
 export default function PublishScreen() {
   const insets = useSafeAreaInsets();
@@ -40,10 +41,7 @@ export default function PublishScreen() {
   const [prefilled, setPrefilled] = useState(false);
   const locationDetected = useRef(false);
 
-  const hasActivePlan =
-    profile?.subscription_type !== 'none' &&
-    profile?.subscription_expires_at != null &&
-    new Date(profile.subscription_expires_at) > new Date();
+  const hasActivePlan = hasActiveBenefits(profile);
   const [featureToggle, setFeatureToggle] = useState(false);
   const [condition, setCondition] = useState<'new' | 'used'>('new');
 
@@ -63,7 +61,7 @@ export default function PublishScreen() {
 
   const editMutation = useEditListing();
   const { data: featured, isPending: featuredPending, error: featuredError, refetch: refetchFeatured } =
-    useFeaturedRemaining(profile?.subscription_type);
+    useFeaturedRemaining(hasActivePlan ? getEffectivePlan(profile) : undefined);
 
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);

@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { RefreshCw } from 'lucide-react-native';
+import { hasActiveBenefits, isInTrial, hasPaidPlan } from '@/lib/subscription';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -228,19 +229,25 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {profile?.subscription_type && profile?.subscription_type !== 'none' && (() => {
-          const type = profile?.subscription_type;
+        {hasActiveBenefits(profile) && (() => {
+          const isPaidPlan = hasPaidPlan(profile);
+          const isTrialActive = isInTrial(profile);
 
-          if (type === 'pending') {
+          if (isTrialActive) {
             return (
               <View style={styles.subscriptionInfo}>
-                <Text style={[styles.subscriptionLabel, { color: Colors.warning }]}>
-                  Pendiente — Pago en proceso
-                </Text>
+                <View style={styles.subscriptionRow}>
+                  <Text style={[styles.subscriptionLabel, { color: Colors.success }]}>
+                    Premium Trial activo
+                  </Text>
+                </View>
               </View>
             );
           }
 
+          if (!isPaidPlan) return null;
+
+          const type = profile?.subscription_type;
           const expiresAt = profile?.subscription_expires_at;
           const expDate = expiresAt ? new Date(expiresAt) : null;
           const now = Date.now();

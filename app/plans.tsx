@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { showError, showInfo, showSuccess } from '@/lib/toast';
+import { hasActiveBenefits, isInTrial, getTrialDaysLeft } from '@/lib/subscription';
 import * as Clipboard from 'expo-clipboard';
 
 export default function PlansScreen() {
@@ -58,8 +59,13 @@ export default function PlansScreen() {
       return;
     }
 
-    if (profile?.subscription_type && profile.subscription_type !== 'none') {
-      showError('Ya tenés un plan activo', 'Cancelá tu plan actual antes de elegir otro');
+    if (hasActiveBenefits(profile)) {
+      const isTrialActive = isInTrial(profile);
+      if (isTrialActive) {
+        showError('Ya tenés premium gratis', 'Tu trial activo ya te da beneficios de premium');
+      } else {
+        showError('Ya tenés un plan activo', 'Cancelá tu plan actual antes de elegir otro');
+      }
       return;
     }
 
@@ -150,6 +156,16 @@ export default function PlansScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={styles.intro}>Destaca tus avisos y llega a mas personas</Text>
+
+        {/* Trial Banner */}
+        {isInTrial(profile) && (
+          <View style={styles.trialBanner}>
+            <Text style={styles.trialBannerTitle}>Estás en periodo de prueba</Text>
+            <Text style={styles.trialBannerText}>
+              Te quedan {getTrialDaysLeft(profile)} días de premium gratis
+            </Text>
+          </View>
+        )}
 
         <View style={styles.plansRow}>
           {plans.map((plan, i) => {
@@ -246,6 +262,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
   scroll: { padding: 16, paddingBottom: 40 },
   intro: { fontSize: 15, color: Colors.textSecondary, marginBottom: 20 },
+  trialBanner: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', borderRadius: 14, padding: 16, marginBottom: 20 },
+  trialBannerTitle: { fontSize: 15, fontWeight: '700', color: '#166534', marginBottom: 4 },
+  trialBannerText: { fontSize: 13, color: '#15803D' },
   plansRow: { gap: 12 },
   planCard: { backgroundColor: Colors.surface, borderRadius: 20, overflow: 'hidden', borderWidth: 2 },
   planHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16 },
