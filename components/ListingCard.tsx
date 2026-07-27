@@ -58,7 +58,7 @@ export const ListingCard = memo(function ListingCard({ listing, variant = 'featu
         <View style={styles.metaRow}>
           {(listing.city?.name || listing.location) && (
             <View style={styles.metaLocItem}>
-              <MapPin size={12} color={Colors.textMuted} />
+              <MapPin size={12} color="#EF4444" />
               <Text style={styles.metaText} numberOfLines={1}>{listing.city?.name || listing.location}</Text>
             </View>
           )}

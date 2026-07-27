@@ -273,7 +273,7 @@ export default function ListingDetailScreen() {
           <View style={styles.metaRow}>
             {(listing.city?.name || listing.location) && (
               <View style={styles.metaItem}>
-                <MapPin size={14} color={Colors.textMuted} />
+                <MapPin size={14} color="#EF4444" />
                 <Text style={styles.metaText}>{listing.city?.name || listing.location}</Text>
               </View>
             )}
