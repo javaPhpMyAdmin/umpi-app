@@ -72,7 +72,6 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="auth/callback" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
             <Stack.Screen name="confirm-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-            <Stack.Screen name="subscription/result" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="+not-found" />
           </Stack>
