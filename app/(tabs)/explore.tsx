@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,7 +13,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Search, SlidersHorizontal, X, Compass } from 'lucide-react-native';
+import { Search, SlidersHorizontal, X, Compass, MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Listing } from '@/types';
 import { ListingCard } from '@/components/ListingCard';
@@ -21,6 +21,21 @@ import { CategoryBadge } from '@/components/CategoryBadge';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { useListingsInfinite } from '@/hooks/useListingsInfinite';
 import { useCategories } from '@/hooks/useCategories';
+
+// Sanitiza el input de precio: vacío/NaN/negativo/Infinity → undefined.
+// Tolera coma decimal ("1,5" → 1.5). El filtro solo se aplica con números finitos.
+function parsePriceInput(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  const result = Number(trimmed.replace(',', '.'));
+  if (!Number.isFinite(result) || result < 0) return undefined;
+  return result;
+}
+
+// Bloquea paste basura en los inputs de precio: solo dígitos, coma y punto
+function sanitizePriceInput(raw: string): string {
+  return raw.replace(/[^\d.,]/g, '');
+}
 
 // Estabilizado fuera del componente — evita que FlatList recreé items en cada render
 function renderExploreItem({ item, index }: { item: Listing; index: number }) {
@@ -48,13 +63,24 @@ export default function ExploreScreen() {
   const [inputValue, setInputValue] = useState((params.q as string) || '');
   const [debouncedQuery, setDebouncedQuery] = useState(inputValue);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<
+  const [typeFilter, setTypeFilter] = useState<
     'all' | 'featured' | 'recent'
   >((params.filter as 'all' | 'featured' | 'recent') || 'all');
   const [sortBy, setSortBy] = useState<'recent' | 'price_asc' | 'price_desc'>(
     'recent',
   );
   const [showFilters, setShowFilters] = useState(false);
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [location, setLocation] = useState('');
+  const [debouncedLocation, setDebouncedLocation] = useState('');
+
+  // Debounce de ubicación: espera 400ms tras la última tecla antes de consultar
+  // (mismo mecanismo que la web en ExplorePage)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedLocation(location), 400);
+    return () => clearTimeout(timer);
+  }, [location]);
 
   // Search only on explicit submit (keyboard "search" button or tap)
   const handleSubmit = useCallback(() => {
@@ -87,6 +113,20 @@ export default function ExploreScreen() {
     [categories],
   );
 
+  // Precios saneados: el estado del filtro nunca contiene NaN (parsePriceInput
+  // devuelve undefined para entradas inválidas, así el filtro se omite)
+  const parsedPriceMin = useMemo(() => parsePriceInput(priceMin), [priceMin]);
+  const parsedPriceMax = useMemo(() => parsePriceInput(priceMax), [priceMax]);
+
+  // Mín > Máx con ambos válidos: feedback visible en vez de lista vacía muda
+  const priceRangeInvalid = useMemo(
+    () =>
+      parsedPriceMin !== undefined &&
+      parsedPriceMax !== undefined &&
+      parsedPriceMin > parsedPriceMax,
+    [parsedPriceMin, parsedPriceMax],
+  );
+
   const {
     data,
     isLoading,
@@ -94,12 +134,15 @@ export default function ExploreScreen() {
     isFetchingNextPage,
     fetchNextPage,
     hasNextPage,
-    error,
+    isError,
     refetch: refetchExplore,
   } = useListingsInfinite({
     query: debouncedQuery || undefined,
     categoryId: selectedCategoryId,
-    filter: activeFilter,
+    priceMin: parsedPriceMin,
+    priceMax: parsedPriceMax,
+    location: debouncedLocation || undefined,
+    filter: typeFilter,
     sortBy,
   });
 
@@ -108,6 +151,54 @@ export default function ExploreScreen() {
       refetchExplore();
     }, [refetchExplore]),
   );
+
+  // Chips de filtros activos (mismo patrón que ExplorePage en la web)
+  const activeFilters = useMemo(() => {
+    const list: { key: string; label: string; onRemove: () => void }[] = [];
+    if (selectedCategory) {
+      const cat = categories.find((c) => c.slug === selectedCategory);
+      if (cat) {
+        list.push({
+          key: 'category',
+          label: cat.name,
+          onRemove: () => setSelectedCategory(null),
+        });
+      }
+    }
+    if (priceMin || priceMax) {
+      list.push({
+        key: 'price',
+        label: `Precio: ${priceMin || '0'} - ${priceMax || '∞'}`,
+        onRemove: () => {
+          setPriceMin('');
+          setPriceMax('');
+        },
+      });
+    }
+    if (location) {
+      list.push({
+        key: 'location',
+        label: `Ubicación: ${location}`,
+        onRemove: () => {
+          setLocation('');
+          setDebouncedLocation('');
+        },
+      });
+    }
+    return list;
+  }, [selectedCategory, categories, priceMin, priceMax, location]);
+
+  const clearAllFilters = useCallback(() => {
+    setSelectedCategory(null);
+    setPriceMin('');
+    setPriceMax('');
+    setLocation('');
+    setDebouncedLocation('');
+    setInputValue('');
+    setDebouncedQuery('');
+    setTypeFilter('all');
+    setSortBy('recent');
+  }, []);
 
   const listings = useMemo(
     () => data?.pages.flatMap((p) => p.data) ?? [],
@@ -161,12 +252,21 @@ export default function ExploreScreen() {
         </View>
       );
     }
-    if (error) {
+    // Error inicial (sin datos previos): estado de error completo con retry
+    if (isError && data === undefined) {
       return (
         <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>No se pudieron cargar los avisos</Text>
           <Text style={styles.emptyText}>
-            Error al cargar los avisos. Tira de nuevo.
+            Revisá tu conexión e intentá de nuevo.
           </Text>
+          <TouchableOpacity
+            style={styles.retryBtn}
+            onPress={() => refetchExplore()}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.retryBtnText}>Reintentar</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -231,16 +331,16 @@ export default function ExploreScreen() {
                   key={opt.key}
                   style={[
                     styles.filterChip,
-                    activeFilter === opt.key && {
+                    typeFilter === opt.key && {
                       backgroundColor: Colors.primary,
                     },
                   ]}
-                  onPress={() => setActiveFilter(opt.key)}
+                  onPress={() => setTypeFilter(opt.key)}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
-                      activeFilter === opt.key && { color: Colors.white },
+                      typeFilter === opt.key && { color: Colors.white },
                     ]}
                   >
                     {opt.label}
@@ -282,19 +382,100 @@ export default function ExploreScreen() {
               ))}
             </View>
           </View>
+
+          <View style={styles.filterDivider} />
+
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Precio</Text>
+            <View style={styles.priceRangeRow}>
+              <View style={styles.priceInputWrap}>
+                <Text style={styles.pricePrefix}>$</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  placeholder="Mín"
+                  placeholderTextColor={Colors.textMuted}
+                  value={priceMin}
+                  onChangeText={(raw) => setPriceMin(sanitizePriceInput(raw))}
+                  keyboardType="numeric"
+                />
+              </View>
+              <Text style={styles.priceDash}>-</Text>
+              <View style={styles.priceInputWrap}>
+                <Text style={styles.pricePrefix}>$</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  placeholder="Máx"
+                  placeholderTextColor={Colors.textMuted}
+                  value={priceMax}
+                  onChangeText={(raw) => setPriceMax(sanitizePriceInput(raw))}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            {priceRangeInvalid && (
+              <Text style={styles.priceErrorText}>
+                El precio mínimo no puede ser mayor que el máximo
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.filterDivider} />
+
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Ubicación</Text>
+            <View style={styles.locationRow}>
+              <MapPin size={16} color={Colors.textMuted} />
+              <TextInput
+                style={styles.locationInput}
+                placeholder="Barrio o ciudad"
+                placeholderTextColor={Colors.textMuted}
+                value={location}
+                onChangeText={setLocation}
+                autoCapitalize="words"
+              />
+              {location.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setLocation('');
+                    setDebouncedLocation('');
+                  }}
+                >
+                  <X size={16} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </View>
       )}
 
-      {selectedCategory && (
-        <View style={styles.clearBar}>
-          <TouchableOpacity
-            style={styles.clearCatBtn}
-            onPress={() => setSelectedCategory(null)}
-            activeOpacity={0.7}
+      {activeFilters.length > 0 && (
+        <View style={styles.activeFiltersBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <X size={14} color={Colors.textSecondary} />
-            <Text style={styles.clearCatText}>Limpiar filtro</Text>
-          </TouchableOpacity>
+            <View style={styles.activeFiltersRow}>
+              {activeFilters.map((filter) => (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={styles.activeFilterChip}
+                  onPress={filter.onRemove}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.activeFilterText}>{filter.label}</Text>
+                  <X size={12} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={styles.clearAllBtn}
+                onPress={clearAllFilters}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearAllText}>Limpiar filtros</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       )}
 
@@ -320,6 +501,21 @@ export default function ExploreScreen() {
           </View>
         </ScrollView>
       </View>
+
+      {isError && data !== undefined && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>
+            No se pudieron actualizar los resultados.
+          </Text>
+          <TouchableOpacity
+            onPress={() => refetchExplore()}
+            hitSlop={8}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.errorBannerBtnText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <FlatList
         key={selectedCategory || 'all'}
@@ -421,25 +617,58 @@ const styles = StyleSheet.create({
   categoriesSection: { marginTop: 16, marginBottom: 16, paddingHorizontal: 16 },
   categoryScroll: {},
   categoriesRow: { flexDirection: 'row', gap: 10, paddingRight: 16 },
-  clearBar: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-  clearCatBtn: {
+  priceRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  priceInputWrap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
     backgroundColor: Colors.borderLight,
+    borderRadius: 12,
+    paddingHorizontal: 10,
   },
-  clearCatText: {
+  pricePrefix: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
+    marginRight: 2,
   },
+  priceInput: { flex: 1, paddingVertical: 8, fontSize: 13, color: Colors.text },
+  priceErrorText: { fontSize: 13, color: Colors.error, marginTop: 6 },
+  priceDash: { fontSize: 13, color: Colors.textMuted },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.borderLight,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+  locationInput: { flex: 1, paddingVertical: 8, fontSize: 13, color: Colors.text },
+  activeFiltersBar: { marginHorizontal: 16, marginTop: 12 },
+  activeFiltersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 16,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.borderLight,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  activeFilterText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  clearAllBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  clearAllText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   statsBar: { paddingHorizontal: 16, marginTop: 16, marginBottom: 12 },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statsSearching: {
@@ -452,12 +681,39 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontWeight: '600',
   },
-  gridRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16 },
   gridColumn: { width: '50%' },
   gridItem: { marginBottom: 12 },
   cardFill: { width: '100%' },
   empty: { padding: 40, alignItems: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: Colors.text, marginBottom: 6 },
   emptyText: { fontSize: 15, color: Colors.textMuted },
+  retryBtn: {
+    marginTop: 16,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: Colors.error,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  errorBannerText: { flex: 1, fontSize: 13, color: Colors.white },
+  errorBannerBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.white,
+    textDecorationLine: 'underline',
+  },
   skeletonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -465,7 +721,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 24,
   },
-  errorText: { fontSize: 15, color: Colors.error },
   footerLoader: {
     flexDirection: 'row',
     alignItems: 'center',

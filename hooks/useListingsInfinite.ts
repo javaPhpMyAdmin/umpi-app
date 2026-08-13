@@ -5,6 +5,9 @@ import { Listing } from '@/types';
 export interface ExploreFilters {
   query?: string;
   categoryId?: string;
+  priceMin?: number;
+  priceMax?: number;
+  location?: string;
   filter: 'all' | 'featured' | 'recent';
   sortBy: 'recent' | 'price_asc' | 'price_desc';
 }
@@ -23,10 +26,15 @@ export function useListingsInfinite(filters: ExploreFilters) {
       const offset = pageParam as number;
 
       if (isSearchMode) {
+        // search_listings (migración 20260718000007, definida en el repo web)
+        // ya filtra por rango de precio y ubicación (ILIKE parcial) — mismos
+        // parámetros que la web
         const { data, error } = await supabase.rpc('search_listings', {
           p_query: filters.query!,
           p_category_id: filters.categoryId ?? null,
-          p_location: null,
+          p_price_min: filters.priceMin ?? null,
+          p_price_max: filters.priceMax ?? null,
+          p_location: filters.location ?? null,
           p_limit: PAGE_SIZE,
           p_offset: offset,
         });
@@ -49,6 +57,17 @@ export function useListingsInfinite(filters: ExploreFilters) {
 
       if (filters.categoryId) {
         query = query.eq('category_id', filters.categoryId);
+      }
+
+      // Mismo patrón que buildBaseQuery en la web: rango de precio y ubicación
+      if (filters.priceMin !== undefined) {
+        query = query.gte('price', filters.priceMin);
+      }
+      if (filters.priceMax !== undefined) {
+        query = query.lte('price', filters.priceMax);
+      }
+      if (filters.location) {
+        query = query.ilike('location', `%${filters.location}%`);
       }
 
       if (filters.filter === 'featured') {
