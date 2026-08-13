@@ -1,3 +1,5 @@
+import type { LegalDocument } from '@/lib/legalContent';
+
 export interface City {
   id: string;
   name: string;
@@ -125,4 +127,12 @@ export interface Notification {
   data: Record<string, any>;
   is_read: boolean;
   created_at: string;
+}
+
+export interface LegalConsent {
+  id: string;
+  user_id: string;
+  document: LegalDocument;
+  version: string;
+  accepted_at: string;
 }

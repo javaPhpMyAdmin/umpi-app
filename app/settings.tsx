@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Save, Shield } from 'lucide-react-native';
+import { ArrowLeft, Save, Shield, ShieldCheck, FileText, ChevronRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { showError, showSuccess } from '@/lib/toast';
+import { LEGAL_DOCUMENTS_CONFIG } from '@/lib/legalContent';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -66,6 +67,28 @@ export default function SettingsScreen() {
             <Text style={styles.adminBtnText}>Administrar categorias</Text>
           </TouchableOpacity>
         )}
+        <View style={styles.legalSection}>
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={() => router.push(LEGAL_DOCUMENTS_CONFIG.terms.route)}
+          >
+            <FileText size={18} color={Colors.textSecondary} />
+            <Text style={styles.legalRowText}>
+              {LEGAL_DOCUMENTS_CONFIG.terms.fullTitle}
+            </Text>
+            <ChevronRight size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={() => router.push(LEGAL_DOCUMENTS_CONFIG.privacy.route)}
+          >
+            <ShieldCheck size={18} color={Colors.textSecondary} />
+            <Text style={styles.legalRowText}>
+              {LEGAL_DOCUMENTS_CONFIG.privacy.fullTitle}
+            </Text>
+            <ChevronRight size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -82,4 +105,7 @@ const styles = StyleSheet.create({
   saveBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
   adminBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.borderLight, padding: 14, borderRadius: 14, marginTop: 8 },
   adminBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 15 },
+  legalSection: { marginTop: 8, gap: 8 },
+  legalRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, padding: 14, borderRadius: 14, gap: 12 },
+  legalRowText: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.text },
 });

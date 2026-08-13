@@ -7,6 +7,7 @@ import Toast from 'react-native-toast-message';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { SplashOverlay } from '@/components/SplashOverlay';
+import LegalConsentGate from '@/components/LegalConsentGate';
 import { toastConfig } from '@/lib/toast';
 
 const queryClient = new QueryClient({
@@ -69,12 +70,16 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <SyncMessageNotifications />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="auth/callback" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-            <Stack.Screen name="confirm-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
+          <LegalConsentGate>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="auth/callback" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+              <Stack.Screen name="confirm-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+              <Stack.Screen name="terms" options={{ headerShown: false }} />
+              <Stack.Screen name="privacy" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+          </LegalConsentGate>
           <StatusBar style="dark" />
           <Toast config={toastConfig} />
           {!splashDone && <SplashOverlay onFinish={() => setSplashDone(true)} />}
