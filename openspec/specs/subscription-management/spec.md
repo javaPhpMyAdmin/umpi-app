@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Let users view available subscription plans, track their active subscription status, cancel when desired, and handle automatic expiration clean-up via a daily cron job.
+Let users view the available subscription plans and read their own subscription status. The mobile app does NOT sell subscriptions: plans are purchased exclusively on the web (umpi.com.ar). The app only reads plan availability and the user's active plan from the shared Supabase database.
 
 ## Requirements
 
 ### Requirement: Display subscription plans from database
 
-The plans screen MUST fetch available plans from the `subscription_plans` table instead of relying on hardcoded mock data. Plans MUST match the DB seed: Basico ($7k, priority 1), Profesional ($14k, priority 2), Premium ($28k, priority 3).
+The plans screen MUST fetch available plans from the `subscription_plans` table. Plans are read-only: the user cannot purchase, cancel, or manage them from the app.
 
 #### Scenario: Plans load from database
 
@@ -16,7 +16,7 @@ The plans screen MUST fetch available plans from the `subscription_plans` table 
 - WHEN the screen renders
 - THEN it MUST query `subscription_plans` ordered by `price ASC`
 - AND display each plan's name, price (formatted in ARS), and feature list
-- AND MUST NOT fall back to hardcoded mock data if the table is empty — show empty state instead
+- AND NOT fall back to hardcoded mock data if the table is empty — show empty state instead
 
 #### Scenario: Database query fails
 
@@ -25,16 +25,22 @@ The plans screen MUST fetch available plans from the `subscription_plans` table 
 - THEN the system MUST show an error state with a "Reintentar" button
 - AND MUST NOT show stale hardcoded plan data
 
-#### Scenario: User without subscription sees no active plan
+#### Scenario: User taps a plan card
 
-- GIVEN the authenticated user has no subscription row or `subscription_type` is null
-- WHEN the user views the plans or profile screen
-- THEN the profile MUST show "Sin plan" or "Sin suscripcion activa"
-- AND the "Elegir plan" button on the plans screen MUST be enabled
+- GIVEN the plans screen is rendering plan cards
+- WHEN the user taps any plan card
+- THEN the system MUST NOT initiate any payment or navigation to an external checkout
+- AND the plan cards MUST be non-interactive (no purchase action)
 
-### Requirement: Show active subscription in profile
+#### Scenario: Plans screen shows web-only purchase notice
 
-The profile screen MUST display the user's current plan name, subscription status, and expiration date when they have an active subscription.
+- GIVEN the plans screen is rendering
+- THEN the screen MUST show a plain-text notice below the plan cards stating that subscriptions are purchased through the website umpi.com.ar
+- AND the notice MUST NOT contain a link, button, or any navigable element
+
+### Requirement: Read active subscription in profile
+
+The profile screen MUST display the user's current plan name, subscription status, and expiration date when they have an active subscription, read directly from the shared database via the user profile.
 
 #### Scenario: Active subscription displayed
 
@@ -51,75 +57,25 @@ The profile screen MUST display the user's current plan name, subscription statu
 - THEN the system SHOULD show a warning "Tu plan vence pronto"
 - AND the expiration date MUST still be displayed
 
-### Requirement: Cancel subscription from profile
+#### Scenario: User without active plan
 
-The authenticated user MUST be able to cancel their active subscription from the profile screen. Cancellation MUST call the MP API to suspend the PreApproval and update the local DB.
+- GIVEN the authenticated user has no subscription row or `subscription_type` is null
+- WHEN the user views the profile screen
+- THEN the profile MUST show "Sin plan" or "Sin suscripcion activa"
 
-#### Scenario: Successful cancellation
+### Requirement: No subscription management actions in the app
 
-- GIVEN the user has an active subscription
-- WHEN the user taps "Cancelar suscripcion"
-- THEN a confirmation dialog MUST appear asking "¿Cancelar suscripcion?"
-- WHEN the user confirms
-- THEN the system MUST call the MP API to cancel the PreApproval
-- AND set `subscription_type = null` in the local DB
-- AND unfeature all user's listings (`is_featured = false`, `listing_priority = 0`)
-- AND show success toast "Suscripcion cancelada"
-- AND the profile MUST show "Sin plan"
+The app MUST NOT offer any action to create, verify, sync, or cancel a subscription. Subscription lifecycle (purchase, renewal, cancellation) is handled exclusively by the web application and its server-side functions.
 
-#### Scenario: Cancel when no active subscription
+#### Scenario: Profile screen has no subscription actions
 
-- GIVEN the user has no active subscription
-- WHEN the profile screen renders
-- THEN the "Cancelar suscripcion" button MUST NOT appear
-- AND "Sin plan" or the available plans MUST be shown instead
+- GIVEN the profile screen renders
+- THEN it MUST NOT show "Verificar suscripcion", "Cancelar suscripcion", or any button that invokes a subscription Edge Function
+- AND the app MUST NOT call `create-subscription`, `cancel-subscription`, `sync-subscription`, or `subscription-result` Edge Functions
+- AND the app MUST NOT open any MercadoPago checkout URL
 
-#### Scenario: MP API cancellation fails
+#### Scenario: Subscription changes detected on next profile fetch
 
-- GIVEN the user confirms cancellation
-- WHEN the MP API call to cancel the PreApproval fails
-- THEN the system MUST show error toast "Error al cancelar en MercadoPago"
-- AND MUST NOT update the local subscription state
-- AND MUST NOT unfeature the user's listings
-
-### Requirement: Daily cron for expired subscriptions
-
-A daily cron job MUST identify subscriptions past `expires_at`, set `subscription_type = null`, unfeature all associated listings (`is_featured = false`, `listing_priority = 0`), and mark the subscription as expired.
-
-#### Scenario: Cron unfeatures expired subscription
-
-- GIVEN a subscription has `expires_at` in the past
-- AND the cron job runs
-- WHEN the job queries for expired subscriptions
-- THEN it MUST set `subscription_type = null` for that user
-- AND set `is_featured = false` and `listing_priority = 0` on all their listings
-- AND update the subscription record with status = 'expired'
-
-#### Scenario: Multiple expired subscriptions processed
-
-- GIVEN multiple users have expired subscriptions
-- WHEN the cron job runs
-- THEN ALL expired subscriptions MUST be processed in a single transaction batch
-
-#### Scenario: Subscription expires while user is on free tier
-
-- GIVEN a user whose subscription expired but never had feature benefits
-- WHEN the cron processes that subscription
-- THEN the cron MUST still mark the subscription as expired
-- AND the change is a no-op on listings (no active features to remove)
-
-### Requirement: Row-Level Security for subscriptions
-
-The `subscription_plans` table MUST be publicly readable. The `subscriptions` table MUST be owner-scoped: users can only read their own subscription rows, and Edge Functions (with service role) can read/write all rows.
-
-#### Scenario: Unauthenticated user reads plans
-
-- GIVEN an unauthenticated user
-- WHEN they query `subscription_plans`
-- THEN the query MUST succeed (public read enabled)
-
-#### Scenario: User reads another user's subscription
-
-- GIVEN user A is authenticated
-- WHEN they query the `subscriptions` table for user B's row
-- THEN the query MUST return zero rows
+- GIVEN the user purchased or cancelled a plan on the web
+- WHEN the app refreshes the user profile
+- THEN the updated subscription state MUST be reflected in the profile screen without any manual sync action
