@@ -7,11 +7,8 @@ import type { Profile, SubscriptionPlan } from '../types'
 // The static values in DEFAULT_LIMITS are an EMERGENCY FALLBACK only, used
 // while the plans query is loading or fails (e.g. no connectivity). They
 // intentionally drift from the DB — do not treat them as the source of truth.
-// `oro` is the alias tras la migración 20260713000007 (premium → oro); se
-// mantienen ambos porque el estado real de la DB compartida no está verificado.
 const DEFAULT_LIMITS = {
   premium: { maxImages: 20, maxFeatured: 10 },
-  oro: { maxImages: 20, maxFeatured: 10 },
   estandar: { maxImages: 10, maxFeatured: 1 },
 } as const
 
@@ -82,9 +79,8 @@ export function getEffectivePlan(profile: Profile | null | undefined): PlanSlug 
  * Resolves the limits for a plan slug against the active plans read from the
  * `subscription_plans` table (via `useSubscriptionPlans`).
  *
- * Slug matching is case-insensitive y con trim: la migración mobile
- * 20260713000007 renombró `premium` → `oro` y el estado real de la DB
- * compartida no está verificado, así que no se asume un slug canónico.
+ * Slug matching es case-insensitive y con trim (normalización defensiva):
+ * los slugs de la tabla `subscription_plans` son `estandar` y `premium`.
  *
  * FAIL-LOUD: si el slug es de un plan pago/no-free y ningún plan activo lo
  * matchea, un usuario pagador degradaría a límites free en silencio. En ese
