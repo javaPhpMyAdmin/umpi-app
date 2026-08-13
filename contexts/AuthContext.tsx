@@ -23,6 +23,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signUpWithEmail: (email: string, fullName: string) => Promise<{ error: any }>;
   sendMagicLink: (email: string) => Promise<{ error: any }>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
+  updatePassword: (password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshSession: () => Promise<boolean>;
@@ -38,6 +40,8 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => ({ error: null }),
   signUpWithEmail: async () => ({ error: null }),
   sendMagicLink: async () => ({ error: null }),
+  resetPassword: async () => ({ error: null }),
+  updatePassword: async () => ({ error: null }),
   signOut: async () => {},
   refreshProfile: async () => {},
   refreshSession: async () => false,
@@ -222,6 +226,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  /**
+   * Password reset — sends a recovery email with a deep link back to the app
+   * (umpi://reset-password). Paridad con la web, que usa el mismo flujo con
+   * redirectTo apuntando a /actualizar-contrasenia.
+   */
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'umpi://reset-password',
+    });
+    return { error };
+  };
+
+  /**
+   * Password update — called from the recovery flow after the user opens the
+   * deep link (recovery session activa) y setea la nueva contraseña.
+   */
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error };
+  };
+
   const signOut = async () => {
     if (Platform.OS !== 'web') {
       try { await GoogleSignin.signOut(); } catch {}
@@ -235,7 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, isLoading, signIn, signInWithGoogle, signUp, signUpWithEmail, sendMagicLink, signOut, refreshProfile, refreshSession }}>
+    <AuthContext.Provider value={{ user, session, profile, isLoading, signIn, signInWithGoogle, signUp, signUpWithEmail, sendMagicLink, resetPassword, updatePassword, signOut, refreshProfile, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

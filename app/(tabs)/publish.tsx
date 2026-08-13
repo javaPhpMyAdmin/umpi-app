@@ -16,6 +16,7 @@ import { showError, showSuccess } from '@/lib/toast';
 import { useListing } from '@/hooks/useListing';
 import { useEditListing } from '@/hooks/useListings';
 import { useFeaturedRemaining } from '@/hooks/useFeaturedRemaining';
+import { useSubscriptionPlans } from '@/hooks/useSubscriptionPlans';
 import { hasActiveBenefits, getMaxImages, getEffectivePlan } from '@/lib/subscription';
 
 export default function PublishScreen() {
@@ -42,6 +43,10 @@ export default function PublishScreen() {
   const locationDetected = useRef(false);
 
   const hasActivePlan = hasActiveBenefits(profile);
+  // Límite real de fotos desde `subscription_plans` (DB-first). Mientras la
+  // query carga o falla, `getMaxImages` degrada al fallback estático (10).
+  const { data: plans } = useSubscriptionPlans();
+  const maxImages = getMaxImages(profile, plans);
   const [featureToggle, setFeatureToggle] = useState(false);
   const [condition, setCondition] = useState<'new' | 'used'>('new');
 
@@ -203,7 +208,7 @@ export default function PublishScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
-      selectionLimit: 10 - images.length,
+      selectionLimit: Math.max(0, maxImages - images.length),
       quality: 0.7,
     });
 
@@ -457,7 +462,7 @@ export default function PublishScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Fotos <Text style={styles.required}>*</Text> {images.length > 0 ? `(${images.length}/10)` : ''}</Text>
+          <Text style={styles.sectionLabel}>Fotos <Text style={styles.required}>*</Text> {images.length > 0 ? `(${images.length}/${maxImages})` : ''}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.imageRow}>
               {images.map((uri, index) => (
@@ -470,7 +475,7 @@ export default function PublishScreen() {
                   </TouchableOpacity>
                 </View>
               ))}
-              {images.length < 10 && (
+              {images.length < maxImages && (
                 <TouchableOpacity style={styles.addImageBtn} onPress={handlePickImage}>
                   <Plus size={24} color={Colors.textMuted} />
                   <Text style={styles.addImageText}>Agregar</Text>

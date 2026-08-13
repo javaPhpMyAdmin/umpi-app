@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Colors } from '@/constants/colors';
 import { useListings } from '@/hooks/useListings';
 import { useCategories } from '@/hooks/useCategories';
+import { useSubscriptionPlans } from '@/hooks/useSubscriptionPlans';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotificationCount } from '@/hooks/useNotifications';
 import { ListingCard } from '@/components/ListingCard';
@@ -32,6 +33,19 @@ export default function HomeScreen() {
     refetch: refetchListings,
   } = useListings();
   const { data: categories = [] } = useCategories();
+  const { data: plans } = useSubscriptionPlans();
+
+  // Precio del plan más barato en ARS, leído de `subscription_plans` (única
+  // fuente de verdad). Se filtra por `currency === 'ARS'` porque la tabla
+  // puede traer planes en otras monedas — mezclarlos falsearía el mínimo.
+  // Mientras la query carga o falla (o no hay planes ARS), `cheapestPrice` es
+  // null y el banner muestra un copy genérico — nunca un precio hardcodeado.
+  const cheapestPrice = useMemo(() => {
+    if (!plans || plans.length === 0) return null;
+    const arsPlans = plans.filter((p) => p.currency === 'ARS');
+    if (arsPlans.length === 0) return null;
+    return Math.min(...arsPlans.map((p) => p.price));
+  }, [plans]);
 
   useFocusEffect(
     useCallback(() => {
@@ -223,7 +237,9 @@ export default function HomeScreen() {
                     Llega a mas personas
                   </Text>
                   <Text style={styles.planBannerSubtitle}>
-                    Planes desde $5.900 ARS/mes
+                    {cheapestPrice != null
+                      ? `Planes desde ${cheapestPrice.toLocaleString('es-AR')} ARS/mes`
+                      : 'Planes para destacar tus avisos'}
                   </Text>
                   <View style={styles.planBannerButton}>
                     <Text style={styles.planBannerButtonText}>Ver planes</Text>
@@ -303,7 +319,9 @@ export default function HomeScreen() {
                     Llega a mas personas
                   </Text>
                   <Text style={styles.planBannerSubtitle}>
-                    Planes desde $5.900 ARS/mes
+                    {cheapestPrice != null
+                      ? `Planes desde ${cheapestPrice.toLocaleString('es-AR')} ARS/mes`
+                      : 'Planes para destacar tus avisos'}
                   </Text>
                   <View style={styles.planBannerButton}>
                     <Text style={styles.planBannerButtonText}>Ver planes</Text>

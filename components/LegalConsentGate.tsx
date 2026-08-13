@@ -51,7 +51,10 @@ import { useAuth } from '@/contexts/AuthContext';
  * accepting; /auth/callback and /confirm-email are the Supabase redirect /
  * magic-link landing routes that establish the session and navigate to the
  * tabs themselves (blocking them would trap the auth flow); /login and
- * /register must never be blocked (the gate applies to logged-in users).
+ * /register must never be blocked (the gate applies to logged-in users);
+ * /forgot-password and /reset-password are the recovery flow — the user must
+ * be able to reset the password even if their account never accepted the
+ * legal version (a blocked user can't accept the terms if they can't log in).
  * The legal doc routes come from LEGAL_DOCUMENTS_CONFIG — the single source
  * of truth for legal routes/titles.
  */
@@ -60,6 +63,8 @@ const AUTH_EXEMPT_PATHS = [
   '/confirm-email',
   '/login',
   '/register',
+  '/forgot-password',
+  '/reset-password',
 ] as const;
 
 const EXEMPT_PATHS = new Set<string>([

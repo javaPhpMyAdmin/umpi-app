@@ -117,19 +117,24 @@ export default function LoginScreen() {
           />
 
           {authMode === 'password' && (
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Contrasena"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff size={20} color={Colors.textMuted} /> : <Eye size={20} color={Colors.textMuted} />}
+            <>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Contrasena"
+                  placeholderTextColor={Colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff size={20} color={Colors.textMuted} /> : <Eye size={20} color={Colors.textMuted} />}
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.forgotLink} onPress={() => router.push('/forgot-password')}>
+                <Text style={styles.forgotLinkText}>Olvidaste tu contrasena?</Text>
               </TouchableOpacity>
-            </View>
+            </>
           )}
 
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleLogin} disabled={loading}>
@@ -202,6 +207,8 @@ const styles = StyleSheet.create({
   input: { backgroundColor: Colors.surface, padding: 14, borderRadius: 14, fontSize: 15, color: Colors.text, marginBottom: 12 },
   passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 14, borderRadius: 14, marginBottom: 12 },
   passwordInput: { flex: 1, paddingVertical: 14, fontSize: 15, color: Colors.text },
+  forgotLink: { alignSelf: 'flex-end', marginTop: -4, marginBottom: 4 },
+  forgotLinkText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
   btn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
