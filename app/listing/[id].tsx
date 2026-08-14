@@ -109,7 +109,11 @@ export default function ListingDetailScreen() {
   useEffect(() => {
     if (!listing?.id) return;
     (async () => {
-      await supabase.rpc('record_listing_view', { p_listing_id: listing.id });
+      try {
+        await supabase.rpc('record_listing_view', { p_listing_id: listing.id });
+      } catch {
+        // offline / RPC caido: no romper la pantalla por un contador
+      }
     })();
   }, [listing?.id]);
 

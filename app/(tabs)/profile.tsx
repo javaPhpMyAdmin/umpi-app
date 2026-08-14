@@ -34,12 +34,16 @@ export default function ProfileScreen() {
   const [totalViews, setTotalViews] = useState(0);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  // Fetch total views
+  // Fetch total views (fire-and-forget: errores de red no deben romper nada)
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
-      const { data } = await supabase.rpc('get_user_views', { p_user_id: user.id });
-      if (data != null) setTotalViews(data as number);
+      try {
+        const { data } = await supabase.rpc('get_user_views', { p_user_id: user.id });
+        if (data != null) setTotalViews(data as number);
+      } catch {
+        // offline / RPC caido: dejar el contador en 0
+      }
     })();
   }, [user?.id]);
 
@@ -76,9 +80,13 @@ export default function ProfileScreen() {
     setUploadingAvatar(true);
     try {
       const publicUrl = await uploadAvatar(result.assets[0].uri, user.id);
+      // Cache-buster: el path fijo {userId}/avatar.webp produce la MISMA URL
+      // en cada re-upload y React Native cachea por URL — sin el ?v= el Image
+      // seguiria mostrando la foto vieja hasta evictar cache.
+      const avatarUrl = `${publicUrl}?v=${Date.now()}`;
       const { error } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: avatarUrl })
         .eq('id', user.id);
       if (error) throw error;
       await refreshProfile();
@@ -149,7 +157,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const isVerified = profile?.subscription_type === 'premium';
+  const isVerified = hasPaidPlan(profile) || isInTrial(profile);
 
   return (
     <View style={styles.container}>
@@ -371,8 +379,8 @@ const createStyles = (c: Palette) => StyleSheet.create({
   verifiedBadge: { position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: c.secondary, borderWidth: 2, borderColor: c.surface, alignItems: 'center', justifyContent: 'center' },
   profileInfo: { flex: 1 },
   profileName: { fontSize: 18, fontWeight: '700', color: c.text },
-  trialBadge: { backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start', marginTop: 4 },
-  trialBadgeText: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
+  trialBadge: { backgroundColor: c.success + '15', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start', marginTop: 4 },
+  trialBadgeText: { fontSize: 12, fontWeight: '700', color: c.success },
   profileEmail: { fontSize: 13, color: c.textMuted, marginTop: 2 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   ratingText: { fontSize: 14, fontWeight: '600', color: c.star },

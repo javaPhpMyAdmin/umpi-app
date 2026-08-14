@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import { useThemeColors } from '@/contexts/ThemeContext';
 
@@ -13,6 +13,11 @@ export function UserAvatar({ url, name, size = 44, backgroundColor }: UserAvatar
   const c = useThemeColors();
   const [failed, setFailed] = useState(false);
   const initial = (name || '?')[0].toUpperCase();
+
+  // Resetear el fallback si cambia la URL (nuevo avatar o cache-buster).
+  useEffect(() => {
+    setFailed(false);
+  }, [url]);
 
   if (url && !failed) {
     return (

@@ -150,8 +150,9 @@ export async function uploadAvatar(uri: string, userId: string): Promise<string>
   if (!userId) throw new Error('Se requiere el usuario');
 
   // Center-crop a cuadrado + 256x256 + webp 0.8 (paridad web). Si algo
-  // falla (dimensiones, manipulacion), se sube la original.
+  // falla (dimensiones, manipulacion), se sube la original con su mime real.
   let processedUri = uri;
+  let contentType = mimeFromExt(uri.split('.').pop()?.toLowerCase() || 'jpg');
   try {
     const { width, height } = await getImageSize(uri);
     const size = Math.min(width, height);
@@ -167,6 +168,7 @@ export async function uploadAvatar(uri: string, userId: string): Promise<string>
       compress: 0.8,
     });
     processedUri = result.uri;
+    contentType = 'image/webp';
   } catch {
     console.warn('Avatar manipulation failed, using original');
   }
@@ -196,7 +198,7 @@ export async function uploadAvatar(uri: string, userId: string): Promise<string>
   const { error: uploadError } = await supabase.storage
     .from(AVATAR_BUCKET)
     .upload(avatarPath, bytes.buffer, {
-      contentType: 'image/webp',
+      contentType,
       upsert: true,
     });
 

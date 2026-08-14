@@ -15,7 +15,7 @@
  * config de react-native-toast-message vive a nivel de modulo, fuera del
  * arbol de providers, y no se migra.
  */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 import { Colors, DarkColors, type Palette } from '@/constants/colors';
 import { customStorage } from '@/lib/storage';
@@ -42,6 +42,9 @@ const PALETTES: Record<Theme, Palette> = {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
   const [theme, setThemeState] = useState<Theme>('light');
+  // La hidratacion asincrona no debe pisar una eleccion explicita del
+  // usuario hecha antes de que resuelva el getItem.
+  const hydratedRef = useRef(false);
 
   // Hidratacion asincrona + seguimiento del sistema cuando no hay
   // preferencia guardada (el efecto re-corre ante cambios del sistema).
@@ -49,7 +52,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     customStorage.getItem(STORAGE_KEY)
       .then((stored) => {
-        if (cancelled) return;
+        if (cancelled || hydratedRef.current) return;
         if (stored === 'dark' || stored === 'light') {
           setThemeState(stored);
         } else {
@@ -60,7 +63,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // SecureStore/localStorage pueden fallar (keychain roto, quota);
         // degradar al default del sistema sin romper el arranque.
-        if (!cancelled) setThemeState(systemScheme === 'dark' ? 'dark' : 'light');
+        if (!cancelled && !hydratedRef.current) setThemeState(systemScheme === 'dark' ? 'dark' : 'light');
       });
     return () => {
       cancelled = true;
@@ -68,6 +71,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [systemScheme]);
 
   const setTheme = (next: Theme) => {
+    hydratedRef.current = true;
     setThemeState(next);
     // Fire-and-forget: en web es sync, en native async (SecureStore).
     customStorage.setItem(STORAGE_KEY, next).catch((err) => {
