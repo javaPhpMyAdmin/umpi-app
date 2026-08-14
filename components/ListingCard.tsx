@@ -2,7 +2,8 @@ import { memo, useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, View, Text, Image, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MapPin, Star, MoreHorizontal } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import type { Palette } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { Listing } from '@/types';
 
 interface ListingCardProps {
@@ -15,6 +16,8 @@ interface ListingCardProps {
 
 export const ListingCard = memo(function ListingCard({ listing, variant = 'featured', style, onEdit, onDelete }: ListingCardProps) {
   const router = useRouter();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const isCompact = variant === 'compact';
   const image = listing.images?.[0] || listing.category?.image_url || '';
   const hasActions = !!onEdit || !!onDelete;
@@ -27,7 +30,7 @@ export const ListingCard = memo(function ListingCard({ listing, variant = 'featu
   const planBorder = listing.is_featured
     ? {
         borderWidth: 5,
-        borderColor: listing.listing_priority === 2 ? Colors.gold : '#9CA3AF',
+        borderColor: listing.listing_priority === 2 ? c.gold : c.textMuted,
       }
     : {};
 
@@ -40,13 +43,13 @@ export const ListingCard = memo(function ListingCard({ listing, variant = 'featu
         <Image source={{ uri: image }} style={isCompact ? styles.compactImage : styles.featuredImage} />
         {hasActions && (
           <TouchableOpacity style={styles.actionBtn} onPress={onEdit || onDelete}>
-            <MoreHorizontal size={18} color={Colors.white} />
+            <MoreHorizontal size={18} color={c.white} />
           </TouchableOpacity>
         )}
       </View>
       {listing.is_featured && (
         <View style={styles.featuredBadge}>
-          <Star size={12} color={Colors.gold} fill={Colors.gold} />
+          <Star size={12} color={c.gold} fill={c.gold} />
           <Text style={styles.featuredBadgeText}>Destacado</Text>
         </View>
       )}
@@ -64,7 +67,7 @@ export const ListingCard = memo(function ListingCard({ listing, variant = 'featu
           )}
           {listing.rating != null && (
             <View style={styles.metaRatingItem}>
-              <Star size={12} color={Colors.star} fill={Colors.star} />
+              <Star size={12} color={c.star} fill={c.star} />
               <Text style={styles.metaText}>{listing.rating}</Text>
             </View>
           )}
@@ -79,13 +82,13 @@ export const ListingCard = memo(function ListingCard({ listing, variant = 'featu
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   featured: {
     width: 220,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: Colors.shadow,
+    shadowColor: c.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 12,
@@ -103,15 +106,15 @@ const styles = StyleSheet.create({
   featuredTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     lineHeight: 18,
   },
   compact: {
     width: '48%',
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: Colors.shadow,
+    shadowColor: c.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
@@ -130,13 +133,13 @@ const styles = StyleSheet.create({
   compactTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     lineHeight: 16,
   },
   price: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.primary,
+    color: c.primary,
     marginTop: 6,
   },
   metaRow: {
@@ -164,14 +167,14 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: c.textMuted,
   },
   userRow: {
     marginTop: 6,
   },
   userName: {
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
   featuredBadge: {
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
   },
   featuredBadgeText: {
     fontSize: 10,
-    color: Colors.white,
+    color: c.white,
     fontWeight: '600',
   },
   actionBtn: {

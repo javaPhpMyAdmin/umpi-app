@@ -4,11 +4,13 @@
  * header with back button + ScrollView with the document card. Content is
  * the client's literal legal copy — never edited here.
  */
+import { useMemo } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import type { LegalSection } from '@/lib/legalContent';
 
 interface LegalDocumentScreenProps {
@@ -29,12 +31,14 @@ export default function LegalDocumentScreen({
 }: LegalDocumentScreenProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={Colors.text} />
+          <ArrowLeft size={22} color={c.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {headerTitle}
@@ -79,10 +83,10 @@ export default function LegalDocumentScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: c.background,
   },
   header: {
     flexDirection: 'row',
@@ -90,9 +94,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 14,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: c.border,
   },
   backBtn: {
     width: 36,
@@ -104,7 +108,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     flex: 1,
     textAlign: 'center',
     marginHorizontal: 8,
@@ -117,7 +121,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     padding: 20,
   },
@@ -127,11 +131,11 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.text,
+    color: c.text,
   },
   updatedAt: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: c.textMuted,
     marginTop: 6,
   },
   section: {
@@ -140,12 +144,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     marginBottom: 8,
   },
   paragraph: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 21,
     marginBottom: 10,
   },
@@ -160,13 +164,13 @@ const styles = StyleSheet.create({
   },
   bulletDot: {
     fontSize: 14,
-    color: Colors.primary,
+    color: c.primary,
     lineHeight: 21,
   },
   bulletText: {
     flex: 1,
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 21,
   },
 });

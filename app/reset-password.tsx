@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { ArrowLeft, Eye, EyeOff, KeyRound, CheckCircle } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { showError } from '@/lib/toast';
@@ -36,6 +37,8 @@ type Status = 'checking' | 'invalid' | 'ready' | 'success';
 export default function ResetPasswordScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const params = useLocalSearchParams<{ code?: string }>();
   const { updatePassword, signOut } = useAuth();
   const [status, setStatus] = useState<Status>('checking');
@@ -194,7 +197,7 @@ export default function ResetPasswordScreen() {
   if (status === 'checking') {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top + 16 }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={c.primary} />
         <Text style={styles.checkingTitle}>Verificando el link...</Text>
         <Text style={styles.checkingSubtitle}>Un momento mientras validamos tu solicitud.</Text>
       </View>
@@ -204,13 +207,13 @@ export default function ResetPasswordScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/login')}>
-        <ArrowLeft size={24} color={Colors.text} />
+        <ArrowLeft size={24} color={c.text} />
       </TouchableOpacity>
 
       {status === 'invalid' ? (
         /* ── Link inválido / expirado ─────────────────────────── */
         <View style={styles.invalid}>
-          <KeyRound size={48} color={Colors.error} style={{ alignSelf: 'center', marginBottom: 16 }} />
+          <KeyRound size={48} color={c.error} style={{ alignSelf: 'center', marginBottom: 16 }} />
           <Text style={styles.invalidTitle}>El link es inválido o expiró</Text>
           <Text style={styles.invalidText}>
             Los links de recuperación son de un solo uso y expiran rápido. Pedí uno nuevo para continuar.
@@ -232,14 +235,14 @@ export default function ResetPasswordScreen() {
             <TextInput
               style={styles.passwordInput}
               placeholder="Nueva contraseña"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={c.textMuted}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              {showPassword ? <EyeOff size={20} color={Colors.textMuted} /> : <Eye size={20} color={Colors.textMuted} />}
+              {showPassword ? <EyeOff size={20} color={c.textMuted} /> : <Eye size={20} color={c.textMuted} />}
             </TouchableOpacity>
           </View>
 
@@ -247,14 +250,14 @@ export default function ResetPasswordScreen() {
             <TextInput
               style={styles.passwordInput}
               placeholder="Confirmar contraseña"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={c.textMuted}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirm}
               autoCapitalize="none"
             />
             <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-              {showConfirm ? <EyeOff size={20} color={Colors.textMuted} /> : <Eye size={20} color={Colors.textMuted} />}
+              {showConfirm ? <EyeOff size={20} color={c.textMuted} /> : <Eye size={20} color={c.textMuted} />}
             </TouchableOpacity>
           </View>
 
@@ -273,7 +276,7 @@ export default function ResetPasswordScreen() {
       <BottomSheetDialog
         visible={status === 'success'}
         onClose={handleDone}
-        icon={<CheckCircle size={28} color={Colors.success} />}
+        icon={<CheckCircle size={28} color={c.success} />}
         title="Contraseña actualizada"
         message="Tu contraseña se cambió correctamente. Ingresá con tu nueva contraseña."
         primaryLabel="Entendido"
@@ -283,31 +286,31 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 24, paddingBottom: 24 },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background, paddingHorizontal: 24, paddingBottom: 24 },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  checkingTitle: { fontSize: 20, fontWeight: '700', color: Colors.text, marginTop: 20, textAlign: 'center' },
-  checkingSubtitle: { fontSize: 14, color: Colors.textMuted, marginTop: 8, textAlign: 'center' },
+  checkingTitle: { fontSize: 20, fontWeight: '700', color: c.text, marginTop: 20, textAlign: 'center' },
+  checkingSubtitle: { fontSize: 14, color: c.textMuted, marginTop: 8, textAlign: 'center' },
   backBtn: { marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: Colors.text },
-  subtitle: { fontSize: 14, color: Colors.textMuted, marginTop: 4, marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: '800', color: c.text },
+  subtitle: { fontSize: 14, color: c.textMuted, marginTop: 4, marginBottom: 24 },
   passwordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     paddingHorizontal: 14,
     borderRadius: 14,
     marginBottom: 12,
   },
-  passwordInput: { flex: 1, paddingVertical: 14, fontSize: 15, color: Colors.text },
-  hint: { fontSize: 12, color: Colors.textMuted, marginBottom: 4 },
-  btn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  passwordInput: { flex: 1, paddingVertical: 14, fontSize: 15, color: c.text },
+  hint: { fontSize: 12, color: c.textMuted, marginBottom: 4 },
+  btn: { backgroundColor: c.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
-  link: { textAlign: 'center', marginTop: 20, fontSize: 14, color: Colors.textMuted },
-  linkBold: { color: Colors.primary, fontWeight: '700' },
+  btnText: { color: c.white, fontWeight: '700', fontSize: 16 },
+  link: { textAlign: 'center', marginTop: 20, fontSize: 14, color: c.textMuted },
+  linkBold: { color: c.primary, fontWeight: '700' },
   // Invalid state
   invalid: { flex: 1, justifyContent: 'center', paddingBottom: 60 },
-  invalidTitle: { fontSize: 22, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 12 },
-  invalidText: { fontSize: 15, color: Colors.textMuted, textAlign: 'center', lineHeight: 22 },
+  invalidTitle: { fontSize: 22, fontWeight: '800', color: c.text, textAlign: 'center', marginBottom: 12 },
+  invalidText: { fontSize: 15, color: c.textMuted, textAlign: 'center', lineHeight: 22 },
 });

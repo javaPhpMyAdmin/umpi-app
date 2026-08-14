@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, Image } from 'react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
 
 interface UserAvatarProps {
   url: string | null | undefined;
@@ -10,6 +10,7 @@ interface UserAvatarProps {
 }
 
 export function UserAvatar({ url, name, size = 44, backgroundColor }: UserAvatarProps) {
+  const c = useThemeColors();
   const [failed, setFailed] = useState(false);
   const initial = (name || '?')[0].toUpperCase();
 
@@ -17,7 +18,7 @@ export function UserAvatar({ url, name, size = 44, backgroundColor }: UserAvatar
     return (
       <Image
         source={{ uri: url }}
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: backgroundColor || Colors.borderLight }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: backgroundColor || c.borderLight }}
         onError={() => setFailed(true)}
       />
     );
@@ -29,12 +30,12 @@ export function UserAvatar({ url, name, size = 44, backgroundColor }: UserAvatar
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: backgroundColor || Colors.primary,
+        backgroundColor: backgroundColor || c.primary,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: Colors.white }}>
+      <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: c.white }}>
         {initial}
       </Text>
     </View>

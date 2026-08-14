@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { SplashOverlay } from '@/components/SplashOverlay';
 import LegalConsentGate from '@/components/LegalConsentGate';
@@ -62,29 +63,37 @@ function SyncMessageNotifications() {
   return null;
 }
 
+/** Root StatusBar theme-aware (dentro del ThemeProvider). */
+function RootStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
+}
+
 export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <SyncMessageNotifications />
-          <LegalConsentGate>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="auth/callback" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-              <Stack.Screen name="confirm-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-              <Stack.Screen name="terms" options={{ headerShown: false }} />
-              <Stack.Screen name="privacy" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-          </LegalConsentGate>
-          <StatusBar style="dark" />
-          <Toast config={toastConfig} />
-          {!splashDone && <SplashOverlay onFinish={() => setSplashDone(true)} />}
-        </AuthProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <SyncMessageNotifications />
+            <LegalConsentGate>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="auth/callback" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                <Stack.Screen name="confirm-email" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+                <Stack.Screen name="terms" options={{ headerShown: false }} />
+                <Stack.Screen name="privacy" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+            </LegalConsentGate>
+            <RootStatusBar />
+            <Toast config={toastConfig} />
+            {!splashDone && <SplashOverlay onFinish={() => setSplashDone(true)} />}
+          </AuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
 }

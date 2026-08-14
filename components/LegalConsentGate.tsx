@@ -38,10 +38,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useMemo } from 'react';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight, CircleAlert, ShieldCheck } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { LEGAL_DOCUMENTS_CONFIG, LEGAL_GATE_SUMMARY } from '@/lib/legalContent';
 import { useLegalConsentGate } from '@/hooks/useLegalConsents';
 import { useAuth } from '@/contexts/AuthContext';
@@ -77,6 +79,8 @@ export default function LegalConsentGate({ children }: { children: ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useAuth();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const {
     needsConsent,
     isChecking,
@@ -99,7 +103,7 @@ export default function LegalConsentGate({ children }: { children: ReactNode }) 
         {isChecking ? (
           /* ── Loading: auth session and/or consents still loading ──────── */
           <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={c.primary} />
             <Text style={styles.checkingText}>Verificando tu cuenta...</Text>
           </View>
         ) : queryError ? (
@@ -107,7 +111,7 @@ export default function LegalConsentGate({ children }: { children: ReactNode }) 
           <View style={styles.centerContent}>
             <View style={styles.card}>
               <View style={styles.iconCircle}>
-                <CircleAlert size={28} color={Colors.error} />
+                <CircleAlert size={28} color={c.error} />
               </View>
               <Text style={styles.cardTitle}>No pudimos verificar tus datos</Text>
               <Text style={styles.cardBody}>
@@ -123,7 +127,7 @@ export default function LegalConsentGate({ children }: { children: ReactNode }) 
           <ScrollView contentContainerStyle={styles.centerContent}>
             <View style={styles.card}>
               <View style={styles.iconCircle}>
-                <ShieldCheck size={28} color={Colors.primary} />
+                <ShieldCheck size={28} color={c.primary} />
               </View>
               <Text style={styles.cardTitle}>Aceptá los términos para continuar</Text>
               <Text style={styles.cardBody}>{LEGAL_GATE_SUMMARY}</Text>
@@ -156,13 +160,13 @@ export default function LegalConsentGate({ children }: { children: ReactNode }) 
               >
                 {isRecording ? (
                   <>
-                    <ActivityIndicator size="small" color={Colors.white} />
+                    <ActivityIndicator size="small" color={c.white} />
                     <Text style={styles.primaryBtnText}>Guardando...</Text>
                   </>
                 ) : (
                   <>
                     <Text style={styles.primaryBtnText}>Aceptar y continuar</Text>
-                    <ArrowRight size={18} color={Colors.white} />
+                    <ArrowRight size={18} color={c.white} />
                   </>
                 )}
               </TouchableOpacity>
@@ -192,10 +196,10 @@ export default function LegalConsentGate({ children }: { children: ReactNode }) 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.background,
+    backgroundColor: c.background,
     zIndex: 100,
   },
   centerContent: {
@@ -206,11 +210,11 @@ const styles = StyleSheet.create({
   },
   checkingText: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     marginTop: 16,
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 20,
     padding: 24,
     width: '100%',
@@ -221,7 +225,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -229,19 +233,19 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     textAlign: 'center',
     marginBottom: 10,
   },
   cardBody: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: 12,
   },
   link: {
-    color: Colors.primary,
+    color: c.primary,
     fontWeight: '700',
   },
   primaryBtn: {
@@ -249,7 +253,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     padding: 15,
     borderRadius: 14,
     width: '100%',
@@ -259,7 +263,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryBtnText: {
-    color: Colors.white,
+    color: c.white,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -269,14 +273,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   secondaryBtnText: {
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
   errorText: {
     fontSize: 13,
-    color: Colors.error,
+    color: c.error,
     textAlign: 'center',
     marginTop: 14,
   },

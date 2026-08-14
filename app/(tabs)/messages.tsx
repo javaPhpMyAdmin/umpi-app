@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, Text, FlatList, TouchableOpacity, Modal, Pressable, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MessageCircle, ArrowRight, Trash2 } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversations, useArchiveConversation } from '@/hooks/useConversations';
 import { SkeletonCard } from '@/components/SkeletonCard';
@@ -15,6 +16,9 @@ export default function MessagesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
+  const { isDark } = useTheme();
   const convsQuery = useConversations(user?.id);
   const conversations = convsQuery.data?.pages.flatMap((p) => p.items) ?? [];
   const archiveMutation = useArchiveConversation();
@@ -47,16 +51,16 @@ export default function MessagesScreen() {
   if (!user) {
     return (
       <View style={styles.container}>
-        <StatusBar style="dark" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={[styles.header, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
           <View style={styles.headerRow}>
-            <MessageCircle size={32} color={Colors.white} />
+            <MessageCircle size={32} color={c.white} />
             <Text style={styles.headerTitle}>Mensajes</Text>
           </View>
           <Text style={styles.headerSubtitle}>De la charla al trato</Text>
         </View>
         <View style={styles.emptyAuth}>
-          <MessageCircle size={48} color={Colors.textMuted} />
+          <MessageCircle size={48} color={c.textMuted} />
           <Text style={styles.emptyAuthTitle}>Inicia sesion para ver tus mensajes</Text>
           <TouchableOpacity style={styles.emptyAuthBtn} onPress={() => router.push('/login')}>
             <Text style={styles.emptyAuthBtnText}>Iniciar sesion</Text>
@@ -68,10 +72,10 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={[styles.header, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
           <View style={styles.headerRow}>
-            <MessageCircle size={32} color={Colors.white} />
+            <MessageCircle size={32} color={c.white} />
             <Text style={styles.headerTitle}>Mensajes</Text>
           </View>
           <Text style={styles.headerSubtitle}>De la charla al trato</Text>
@@ -100,7 +104,7 @@ export default function MessagesScreen() {
                   </Text>
                 )}
               </View>
-              <ArrowRight size={18} color={Colors.textMuted} />
+              <ArrowRight size={18} color={c.textMuted} />
             </TouchableOpacity>
           );
         }}
@@ -113,7 +117,7 @@ export default function MessagesScreen() {
         ListFooterComponent={
           convsQuery.hasNextPage ? (
             <View style={{ padding: 16, alignItems: 'center' }}>
-              <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Cargando más chats...</Text>
+              <Text style={{ color: c.textMuted, fontSize: 13 }}>Cargando más chats...</Text>
             </View>
           ) : null
         }
@@ -125,7 +129,7 @@ export default function MessagesScreen() {
         onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={conversations.length === 0 ? { flex: 1 } : styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />}
       />
 
       {/* Modal de confirmación para eliminar conversación */}
@@ -133,7 +137,7 @@ export default function MessagesScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setArchiveTarget(null)}>
           <Pressable style={styles.modalContent}>
             <View style={styles.modalIcon}>
-              <Trash2 size={24} color={Colors.error} />
+              <Trash2 size={24} color={c.error} />
             </View>
             <Text style={styles.modalTitle}>Eliminar conversación</Text>
             <Text style={styles.modalText}>
@@ -156,40 +160,40 @@ export default function MessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
+  header: { backgroundColor: c.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerTitle: { fontSize: 34, fontWeight: '800', color: Colors.white },
+  headerTitle: { fontSize: 34, fontWeight: '800', color: c.white },
   headerSubtitle: { fontSize: 17, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 6 },
   scroll: { padding: 16, gap: 8 },
   empty: { padding: 40, alignItems: 'center' },
-  emptyText: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  emptySubtext: { fontSize: 13, color: Colors.textMuted, marginTop: 4 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: c.text },
+  emptySubtext: { fontSize: 13, color: c.textMuted, marginTop: 4 },
   emptyAuth: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 },
-  emptyAuthTitle: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  emptyAuthBtn: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
-  emptyAuthBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
-  conversation: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, padding: 14, borderRadius: 16, gap: 12, marginBottom: 8 },
-  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 16, fontWeight: '700', color: Colors.white },
+  emptyAuthTitle: { fontSize: 16, fontWeight: '600', color: c.text },
+  emptyAuthBtn: { backgroundColor: c.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
+  emptyAuthBtnText: { color: c.white, fontWeight: '700', fontSize: 14 },
+  conversation: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.surface, padding: 14, borderRadius: 16, gap: 12, marginBottom: 8 },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 16, fontWeight: '700', color: c.white },
   convInfo: { flex: 1 },
   convTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  convName: { fontSize: 15, fontWeight: '700', color: Colors.text, flexShrink: 1 },
-  convListing: { fontSize: 13, fontWeight: '600', color: Colors.primary, marginTop: 2 },
-  lastMessage: { fontSize: 13, color: Colors.textMuted },
-  unreadBadge: { backgroundColor: Colors.primary, borderRadius: 10, minWidth: 20, height: 20, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
-  unreadText: { fontSize: 11, fontWeight: '800', color: Colors.white },
+  convName: { fontSize: 15, fontWeight: '700', color: c.text, flexShrink: 1 },
+  convListing: { fontSize: 13, fontWeight: '600', color: c.primary, marginTop: 2 },
+  lastMessage: { fontSize: 13, color: c.textMuted },
+  unreadBadge: { backgroundColor: c.primary, borderRadius: 10, minWidth: 20, height: 20, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
+  unreadText: { fontSize: 11, fontWeight: '800', color: c.white },
   // Modal
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  modalContent: { backgroundColor: Colors.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center', shadowColor: Colors.black, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12 },
-  modalIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 8, textAlign: 'center' },
-  modalText: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-  modalBold: { fontWeight: '700', color: Colors.text },
+  modalContent: { backgroundColor: c.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center', shadowColor: c.black, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 12 },
+  modalIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.dangerSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: c.text, marginBottom: 8, textAlign: 'center' },
+  modalText: { fontSize: 14, color: c.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  modalBold: { fontWeight: '700', color: c.text },
   modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
-  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.borderLight, alignItems: 'center' },
-  modalCancelText: { fontSize: 15, fontWeight: '600', color: Colors.text },
-  modalDelete: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: Colors.error, alignItems: 'center' },
-  modalDeleteText: { fontSize: 15, fontWeight: '700', color: Colors.white },
+  modalCancel: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.borderLight, alignItems: 'center' },
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: c.text },
+  modalDelete: { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: c.error, alignItems: 'center' },
+  modalDeleteText: { fontSize: 15, fontWeight: '700', color: c.white },
 });

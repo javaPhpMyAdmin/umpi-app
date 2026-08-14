@@ -1,9 +1,10 @@
 import { Tabs } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View, Platform, Animated, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Search, PlusCircle, MessageCircle, User } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 function AnimatedTabIcon({ focused, children }: { focused: boolean; children: React.ReactNode }) {
@@ -59,6 +60,8 @@ function AnimatedTabLabel({ focused, color, children }: { focused: boolean; colo
 
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const bottomInset = Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 4);
 
   return (
@@ -85,8 +88,8 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           });
         };
 
-        const iconColor = focused ? Colors.primary : Colors.textSecondary;
-        const labelColor = focused ? Colors.primaryDark : Colors.textSecondary;
+        const iconColor = focused ? c.primary : c.textSecondary;
+        const labelColor = focused ? c.primaryDark : c.textSecondary;
 
         return (
           <Pressable
@@ -112,13 +115,14 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
+  const c = useThemeColors();
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: c.primary,
+        tabBarInactiveTintColor: c.textMuted,
         tabBarShowLabel: true,
       }}>
       <Tabs.Screen
@@ -195,11 +199,11 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderTopColor: Colors.border,
+    backgroundColor: c.surface,
+    borderTopColor: c.border,
     borderTopWidth: 1,
     paddingTop: 4,
     elevation: 8,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   Easing,
   StyleSheet,
 } from 'react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 
 const TOTAL_DOTS = 3;
@@ -18,6 +19,8 @@ interface SplashOverlayProps {
 
 export function SplashOverlay({ onFinish }: SplashOverlayProps) {
   const { isLoading } = useAuth();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const [minTimePassed, setMinTimePassed] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [dots, setDots] = useState(0);
@@ -139,10 +142,10 @@ export function SplashOverlay({ onFinish }: SplashOverlayProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,

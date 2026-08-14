@@ -14,7 +14,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Search, SlidersHorizontal, X, Compass, MapPin } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { Listing } from '@/types';
 import { ListingCard } from '@/components/ListingCard';
 import { CategoryBadge } from '@/components/CategoryBadge';
@@ -40,16 +41,16 @@ function sanitizePriceInput(raw: string): string {
 // Estabilizado fuera del componente — evita que FlatList recreé items en cada render
 function renderExploreItem({ item, index }: { item: Listing; index: number }) {
   return (
-    <View style={styles.gridColumn}>
+    <View style={staticStyles.gridColumn}>
       <View
         style={[
-          styles.gridItem,
+          staticStyles.gridItem,
           index % 2 === 0
             ? { marginLeft: 16, marginRight: 6 }
             : { marginLeft: 6, marginRight: 16 },
         ]}
       >
-        <ListingCard listing={item} variant="compact" style={styles.cardFill} />
+        <ListingCard listing={item} variant="compact" style={staticStyles.cardFill} />
       </View>
     </View>
   );
@@ -59,6 +60,9 @@ export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { data: categories = [] } = useCategories();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
+  const { isDark } = useTheme();
 
   const [inputValue, setInputValue] = useState((params.q as string) || '');
   const [debouncedQuery, setDebouncedQuery] = useState(inputValue);
@@ -210,7 +214,7 @@ export default function ExploreScreen() {
       <View style={styles.statsRow}>
         {isFetching && !isLoading ? (
           <>
-            <ActivityIndicator size={12} color={Colors.primary} />
+            <ActivityIndicator size={12} color={c.primary} />
             <Text style={styles.statsSearching}>Buscando...</Text>
           </>
         ) : (
@@ -227,7 +231,7 @@ export default function ExploreScreen() {
     if (isFetchingNextPage) {
       return (
         <View style={styles.footerLoader}>
-          <ActivityIndicator size="small" color={Colors.primary} />
+          <ActivityIndicator size="small" color={c.primary} />
           <Text style={styles.footerText}>Cargando más avisos...</Text>
         </View>
       );
@@ -279,10 +283,10 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={[styles.header, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
         <View style={styles.headerRow}>
-          <Compass size={32} color={Colors.white} />
+          <Compass size={32} color={c.white} />
           <Text style={styles.headerTitle}>Explorar</Text>
         </View>
         <Text style={styles.headerSubtitle}>Descubre miles de avisos</Text>
@@ -290,22 +294,22 @@ export default function ExploreScreen() {
 
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
-          <Search size={18} color={Colors.textMuted} />
+          <Search size={18} color={c.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar avisos..."
-            placeholderTextColor={Colors.textMuted}
+            placeholderTextColor={c.textMuted}
             value={inputValue}
             onChangeText={setInputValue}
             onSubmitEditing={handleSubmit}
             returnKeyType="search"
           />
           {isFetching && !isLoading && inputValue.length >= 2 && (
-            <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 4 }} />
+            <ActivityIndicator size="small" color={c.primary} style={{ marginRight: 4 }} />
           )}
           {inputValue.length > 0 && (
             <TouchableOpacity onPress={() => { setInputValue(''); setDebouncedQuery(''); }}>
-              <X size={18} color={Colors.textMuted} />
+              <X size={18} color={c.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -313,7 +317,7 @@ export default function ExploreScreen() {
           style={styles.filterBtn}
           onPress={() => setShowFilters(!showFilters)}
         >
-          <SlidersHorizontal size={20} color={Colors.primary} />
+          <SlidersHorizontal size={20} color={c.primary} />
         </TouchableOpacity>
       </View>
 
@@ -332,7 +336,7 @@ export default function ExploreScreen() {
                   style={[
                     styles.filterChip,
                     typeFilter === opt.key && {
-                      backgroundColor: Colors.primary,
+                      backgroundColor: c.primary,
                     },
                   ]}
                   onPress={() => setTypeFilter(opt.key)}
@@ -340,7 +344,7 @@ export default function ExploreScreen() {
                   <Text
                     style={[
                       styles.filterChipText,
-                      typeFilter === opt.key && { color: Colors.white },
+                      typeFilter === opt.key && { color: c.white },
                     ]}
                   >
                     {opt.label}
@@ -365,7 +369,7 @@ export default function ExploreScreen() {
                   style={[
                     styles.filterChip,
                     sortBy === opt.key && {
-                      backgroundColor: Colors.primary,
+                      backgroundColor: c.primary,
                     },
                   ]}
                   onPress={() => setSortBy(opt.key)}
@@ -373,7 +377,7 @@ export default function ExploreScreen() {
                   <Text
                     style={[
                       styles.filterChipText,
-                      sortBy === opt.key && { color: Colors.white },
+                      sortBy === opt.key && { color: c.white },
                     ]}
                   >
                     {opt.label}
@@ -393,7 +397,7 @@ export default function ExploreScreen() {
                 <TextInput
                   style={styles.priceInput}
                   placeholder="Mín"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={c.textMuted}
                   value={priceMin}
                   onChangeText={(raw) => setPriceMin(sanitizePriceInput(raw))}
                   keyboardType="numeric"
@@ -405,7 +409,7 @@ export default function ExploreScreen() {
                 <TextInput
                   style={styles.priceInput}
                   placeholder="Máx"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={c.textMuted}
                   value={priceMax}
                   onChangeText={(raw) => setPriceMax(sanitizePriceInput(raw))}
                   keyboardType="numeric"
@@ -424,11 +428,11 @@ export default function ExploreScreen() {
           <View style={styles.filterRow}>
             <Text style={styles.filterLabel}>Ubicación</Text>
             <View style={styles.locationRow}>
-              <MapPin size={16} color={Colors.textMuted} />
+              <MapPin size={16} color={c.textMuted} />
               <TextInput
                 style={styles.locationInput}
                 placeholder="Barrio o ciudad"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={c.textMuted}
                 value={location}
                 onChangeText={setLocation}
                 autoCapitalize="words"
@@ -440,7 +444,7 @@ export default function ExploreScreen() {
                     setDebouncedLocation('');
                   }}
                 >
-                  <X size={16} color={Colors.textMuted} />
+                  <X size={16} color={c.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -464,7 +468,7 @@ export default function ExploreScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.activeFilterText}>{filter.label}</Text>
-                  <X size={12} color={Colors.textSecondary} />
+                  <X size={12} color={c.textSecondary} />
                 </TouchableOpacity>
               ))}
               <TouchableOpacity
@@ -538,10 +542,10 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   header: {
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     paddingTop: 48,
     paddingBottom: 18,
     paddingHorizontal: 20,
@@ -557,7 +561,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 34,
     fontWeight: '800',
-    color: Colors.white,
+    color: c.white,
   },
   headerSubtitle: {
     fontSize: 17,
@@ -576,42 +580,42 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 14,
     gap: 8,
   },
-  searchInput: { flex: 1, fontSize: 14, color: Colors.text },
+  searchInput: { flex: 1, fontSize: 14, color: c.text },
   filterBtn: {
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     padding: 10,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterPanel: {
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 14,
     padding: 12,
   },
   filterRow: { gap: 8 },
-  filterLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  filterLabel: { fontSize: 13, fontWeight: '600', color: c.textSecondary },
   filterOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterDivider: {
     height: 1,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     marginVertical: 10,
   },
   filterChip: {
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
   },
-  filterChipText: { fontSize: 12, fontWeight: '600', color: Colors.text },
+  filterChipText: { fontSize: 12, fontWeight: '600', color: c.text },
   list: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
   categoriesSection: { marginTop: 16, marginBottom: 16, paddingHorizontal: 16 },
@@ -622,28 +626,28 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     borderRadius: 12,
     paddingHorizontal: 10,
   },
   pricePrefix: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textMuted,
+    color: c.textMuted,
     marginRight: 2,
   },
-  priceInput: { flex: 1, paddingVertical: 8, fontSize: 13, color: Colors.text },
-  priceErrorText: { fontSize: 13, color: Colors.error, marginTop: 6 },
-  priceDash: { fontSize: 13, color: Colors.textMuted },
+  priceInput: { flex: 1, paddingVertical: 8, fontSize: 13, color: c.text },
+  priceErrorText: { fontSize: 13, color: c.error, marginTop: 6 },
+  priceDash: { fontSize: 13, color: c.textMuted },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     borderRadius: 12,
     paddingHorizontal: 10,
     gap: 8,
   },
-  locationInput: { flex: 1, paddingVertical: 8, fontSize: 13, color: Colors.text },
+  locationInput: { flex: 1, paddingVertical: 8, fontSize: 13, color: c.text },
   activeFiltersBar: { marginHorizontal: 16, marginTop: 12 },
   activeFiltersRow: {
     flexDirection: 'row',
@@ -655,46 +659,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
   },
-  activeFilterText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  activeFilterText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
   clearAllBtn: {
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: c.border,
   },
-  clearAllText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  clearAllText: { fontSize: 12, fontWeight: '600', color: c.textSecondary },
   statsBar: { paddingHorizontal: 16, marginTop: 16, marginBottom: 12 },
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statsSearching: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
+    color: c.primary,
   },
   statsText: {
     fontSize: 14,
-    color: '#374151',
+    color: c.textSecondary,
     fontWeight: '600',
   },
-  gridColumn: { width: '50%' },
-  gridItem: { marginBottom: 12 },
-  cardFill: { width: '100%' },
   empty: { padding: 40, alignItems: 'center' },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: Colors.text, marginBottom: 6 },
-  emptyText: { fontSize: 15, color: Colors.textMuted },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: c.text, marginBottom: 6 },
+  emptyText: { fontSize: 15, color: c.textMuted },
   retryBtn: {
     marginTop: 16,
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 12,
   },
-  retryBtnText: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: c.white },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -702,16 +703,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginHorizontal: 16,
     marginTop: 12,
-    backgroundColor: Colors.error,
+    backgroundColor: c.error,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  errorBannerText: { flex: 1, fontSize: 13, color: Colors.white },
+  errorBannerText: { flex: 1, fontSize: 13, color: c.white },
   errorBannerBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.white,
+    color: c.white,
     textDecorationLine: 'underline',
   },
   skeletonGrid: {
@@ -728,6 +729,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 20,
   },
-  footerText: { fontSize: 13, color: Colors.textMuted },
+  footerText: { fontSize: 13, color: c.textMuted },
   footerEnd: { paddingVertical: 20, alignItems: 'center' },
+});
+
+// Estilos estáticos sin color usados por renderExploreItem (módulo-level)
+const staticStyles = StyleSheet.create({
+  gridColumn: { width: '50%' },
+  gridItem: { marginBottom: 12 },
+  cardFill: { width: '100%' },
 });

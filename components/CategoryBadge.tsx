@@ -1,5 +1,8 @@
+import { useMemo } from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
-import { Colors, CategoryColors } from '@/constants/colors';
+import { CategoryColors } from '@/constants/colors';
+import type { Palette } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { Category } from '@/types';
 import { CategoryIcon } from './CategoryIcon';
 
@@ -12,13 +15,15 @@ interface CategoryBadgeProps {
 }
 
 export function CategoryBadge({ category, isActive, onPress, showCount, variant = 'badge' }: CategoryBadgeProps) {
-  const color = (CategoryColors as any)[category.slug] || Colors.primary;
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
+  const color = (CategoryColors as any)[category.slug] || c.primary;
 
   if (variant === 'card') {
     return (
       <TouchableOpacity style={[styles.card, { backgroundColor: `${color}20` }]} onPress={onPress} activeOpacity={0.7}>
         <View style={[styles.cardIcon, { backgroundColor: color }]}>
-          <CategoryIcon icon={category.icon} size={22} color={Colors.white} />
+          <CategoryIcon icon={category.icon} size={22} color={c.white} />
         </View>
         <Text style={styles.cardName}>{category.name}</Text>
         <Text style={[styles.cardCount, { color }]}>{category.total_count?.toLocaleString() || 0} avisos</Text>
@@ -31,8 +36,8 @@ export function CategoryBadge({ category, isActive, onPress, showCount, variant 
       style={[styles.badge, isActive ? { backgroundColor: color } : { backgroundColor: `${color}20` }]}
       onPress={onPress}
       activeOpacity={0.7}>
-      <CategoryIcon icon={category.icon} size={16} color={isActive ? Colors.white : color} />
-      <Text style={[styles.badgeText, { color: isActive ? Colors.white : color }]}>{category.name}</Text>
+      <CategoryIcon icon={category.icon} size={16} color={isActive ? c.white : color} />
+      <Text style={[styles.badgeText, { color: isActive ? c.white : color }]}>{category.name}</Text>
       {showCount && !isActive && (
         <Text style={[styles.badgeCount, { color }]}>({category.total_count || 0})</Text>
       )}
@@ -40,7 +45,7 @@ export function CategoryBadge({ category, isActive, onPress, showCount, variant 
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -77,7 +82,7 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     textAlign: 'center',
   },
   cardCount: {

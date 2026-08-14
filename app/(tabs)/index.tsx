@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Star, Clock, ChevronRight, Store, Bell } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Colors } from '@/constants/colors';
+import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useListings } from '@/hooks/useListings';
 import { useCategories } from '@/hooks/useCategories';
 import { useSubscriptionPlans } from '@/hooks/useSubscriptionPlans';
@@ -25,6 +26,9 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
+  const { isDark } = useTheme();
   const { data: unreadCount = 0 } = useNotificationCount(user?.id);
 
   const {
@@ -83,7 +87,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* marginTop desplaza el header debajo de la status bar; paddingTop mantiene el área naranja igual que antes */}
       <View
         style={[
@@ -93,7 +97,7 @@ export default function HomeScreen() {
       >
         <View style={styles.headerTopRow}>
           <View style={styles.logoRow}>
-            <Store size={32} color={Colors.white} style={styles.storeIcon} />
+            <Store size={32} color={c.white} style={styles.storeIcon} />
             <Text style={styles.logo}>Umpii</Text>
           </View>
           {user && (
@@ -101,7 +105,7 @@ export default function HomeScreen() {
               style={styles.bellButton}
               onPress={() => router.push('/notifications')}
             >
-              <Bell size={26} color={Colors.white} />
+              <Bell size={26} color={c.white} />
               {unreadCount > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
@@ -145,7 +149,7 @@ export default function HomeScreen() {
               style={{
                 width: 140,
                 height: 14,
-                backgroundColor: Colors.border,
+                backgroundColor: c.border,
                 borderRadius: 4,
                 marginBottom: 10,
               }}
@@ -157,7 +161,7 @@ export default function HomeScreen() {
                   style={{
                     width: 100,
                     height: 32,
-                    backgroundColor: Colors.border,
+                    backgroundColor: c.border,
                     borderRadius: 16,
                     marginRight: 8,
                   }}
@@ -171,7 +175,7 @@ export default function HomeScreen() {
                 style={{
                   width: 140,
                   height: 18,
-                  backgroundColor: Colors.border,
+                  backgroundColor: c.border,
                   borderRadius: 4,
                 }}
               />
@@ -194,7 +198,7 @@ export default function HomeScreen() {
                 style={{
                   width: 160,
                   height: 18,
-                  backgroundColor: Colors.border,
+                  backgroundColor: c.border,
                   borderRadius: 4,
                 }}
               />
@@ -216,7 +220,7 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleRow}>
-                  <Star size={20} color={Colors.gold} />
+                  <Star size={20} color={c.gold} />
                   <Text style={styles.sectionTitle}>
                     Suscripciones destacadas
                   </Text>
@@ -243,7 +247,7 @@ export default function HomeScreen() {
                   </Text>
                   <View style={styles.planBannerButton}>
                     <Text style={styles.planBannerButtonText}>Ver planes</Text>
-                    <ChevronRight size={16} color={Colors.primary} />
+                    <ChevronRight size={16} color={c.primary} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -253,7 +257,7 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleRow}>
-                  <Star size={20} color={Colors.primary} />
+                  <Star size={20} color={c.primary} />
                   <Text style={styles.sectionTitle}>Destacados</Text>
                 </View>
                 {featured.length >= 6 && (
@@ -284,7 +288,7 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
-                <Clock size={20} color={Colors.secondary} />
+                <Clock size={20} color={c.secondary} />
                 <Text style={styles.sectionTitle}>Publicaciones recientes</Text>
               </View>
             </View>
@@ -298,7 +302,7 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionTitleRow}>
-                  <Star size={20} color={Colors.gold} />
+                  <Star size={20} color={c.gold} />
                   <Text style={styles.sectionTitle}>
                     Suscripciones destacadas
                   </Text>
@@ -325,7 +329,7 @@ export default function HomeScreen() {
                   </Text>
                   <View style={styles.planBannerButton}>
                     <Text style={styles.planBannerButtonText}>Ver planes</Text>
-                    <ChevronRight size={16} color={Colors.primary} />
+                    <ChevronRight size={16} color={c.primary} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -337,10 +341,10 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   header: {
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     paddingTop: 48,
     paddingBottom: 16,
     paddingHorizontal: 20,
@@ -355,7 +359,7 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 34,
     fontWeight: '800',
-    color: Colors.white,
+    color: c.white,
     letterSpacing: -1,
   },
   logoRow: {
@@ -370,7 +374,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    backgroundColor: Colors.error,
+    backgroundColor: c.error,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
@@ -379,7 +383,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   badgeText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -405,7 +409,7 @@ const styles = StyleSheet.create({
   quickSearchLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     marginBottom: 10,
   },
   quickSearchSkeleton: {
@@ -433,11 +437,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
   },
   sectionLink: {
     fontSize: 13,
-    color: Colors.primary,
+    color: c.primary,
     fontWeight: '600',
   },
   featuredScroll: {
@@ -474,7 +478,7 @@ const styles = StyleSheet.create({
   planBannerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.white,
+    color: c.white,
   },
   planBannerSubtitle: {
     fontSize: 13,
@@ -486,7 +490,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginTop: 8,
-    backgroundColor: Colors.white,
+    backgroundColor: c.white,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
@@ -495,6 +499,6 @@ const styles = StyleSheet.create({
   planBannerButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
+    color: c.primary,
   },
 });

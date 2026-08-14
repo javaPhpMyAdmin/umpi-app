@@ -1,5 +1,5 @@
 import { Wrench, Car, Home, Laptop, UtensilsCrossed, Coffee, Wine, Star, Sparkles, Smartphone, Store } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
 
 const iconMap: Record<string, React.ComponentType<any>> = {
   Sparkles,
@@ -21,7 +21,8 @@ interface CategoryIconProps {
   color?: string;
 }
 
-export function CategoryIcon({ icon, size = 20, color = Colors.primary }: CategoryIconProps) {
+export function CategoryIcon({ icon, size = 20, color }: CategoryIconProps) {
+  const c = useThemeColors();
   const IconComponent = iconMap[icon] || Sparkles;
-  return <IconComponent size={size} color={color} strokeWidth={2} />;
+  return <IconComponent size={size} color={color || c.primary} strokeWidth={2} />;
 }

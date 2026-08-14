@@ -1,12 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 
 export default function AuthCallback() {
   const router = useRouter();
   const params = useLocalSearchParams<{ code?: string }>();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +76,6 @@ export default function AuthCallback() {
   return <View style={styles.container} />;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
 });

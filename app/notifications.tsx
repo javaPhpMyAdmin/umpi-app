@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,7 +13,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Bell, Star, Clock, MessageCircle, ArrowLeft, Trash2 } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   useNotifications,
@@ -46,13 +47,14 @@ function timeAgo(dateStr: string): string {
 }
 
 function NotificationIcon({ type }: { type: Notification['type'] }) {
+  const c = useThemeColors();
   switch (type) {
     case 'review':
-      return <Star size={20} color={Colors.star} />;
+      return <Star size={20} color={c.star} />;
     case 'message':
-      return <MessageCircle size={20} color={Colors.primary} />;
+      return <MessageCircle size={20} color={c.primary} />;
     default:
-      return <Clock size={20} color={Colors.secondary} />;
+      return <Clock size={20} color={c.secondary} />;
   }
 }
 
@@ -81,9 +83,14 @@ const NotificationItem = memo(function NotificationItem({
   onDelete,
   data,
 }: NotificationItemProps) {
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   return (
     <TouchableOpacity
-      style={[styles.notifItem, !is_read && styles.notifUnread]}
+      style={[
+        styles.notifItem,
+        !is_read && { backgroundColor: c.primarySoft },
+      ]}
       onPress={() => onTap(id, is_read, data)}
       onLongPress={() => onDelete(id, title)}
     >
@@ -115,6 +122,9 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
+  const { isDark } = useTheme();
 
   const {
     data,
@@ -180,7 +190,7 @@ export default function NotificationsScreen() {
     if (isLoading) return <ActivityIndicator style={styles.loader} />;
     return (
       <View style={styles.emptyState}>
-        <Bell size={48} color={Colors.border} />
+        <Bell size={48} color={c.border} />
         <Text style={styles.emptyTitle}>Sin notificaciones</Text>
         <Text style={styles.emptySubtitle}>
           Cuando alguien te califique o tu suscripción esté por vencer, te
@@ -194,18 +204,18 @@ export default function NotificationsScreen() {
     if (!isFetchingNextPage) return null;
     return (
       <View style={styles.footer}>
-        <ActivityIndicator size="small" color={Colors.primary} />
+        <ActivityIndicator size="small" color={c.primary} />
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={22} color={Colors.text} />
+          <ArrowLeft size={22} color={c.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notificaciones</Text>
         {notifications.length > 0 ? (
@@ -234,7 +244,7 @@ export default function NotificationsScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setDeleteTarget(null)}>
           <Pressable style={styles.modalContent}>
             <View style={styles.modalIcon}>
-              <Trash2 size={24} color={Colors.error} />
+              <Trash2 size={24} color={c.error} />
             </View>
             <Text style={styles.modalTitle}>Eliminar notificación</Text>
             <Text style={styles.modalText}>
@@ -258,10 +268,10 @@ export default function NotificationsScreen() {
 
 // --- Styles ---
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: c.background,
   },
   header: {
     flexDirection: 'row',
@@ -269,9 +279,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 14,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: c.border,
   },
   backBtn: {
     width: 36,
@@ -283,7 +293,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
   },
   headerSpacer: {
     width: 36,
@@ -291,7 +301,7 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.primary,
+    color: c.primary,
   },
   listContent: {
     flexGrow: 1,
@@ -304,18 +314,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.borderLight,
-  },
-  notifUnread: {
-    backgroundColor: '#FFF8F5',
+    borderBottomColor: c.borderLight,
   },
   notifIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -332,7 +339,7 @@ const styles = StyleSheet.create({
   notifTitle: {
     fontSize: 15,
     fontWeight: '500',
-    color: Colors.text,
+    color: c.text,
     flex: 1,
     marginRight: 8,
   },
@@ -341,18 +348,18 @@ const styles = StyleSheet.create({
   },
   notifBody: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     lineHeight: 18,
   },
   notifTime: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: c.textMuted,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     marginLeft: 8,
   },
   emptyState: {
@@ -365,12 +372,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
@@ -387,7 +394,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   modalContent: {
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -398,7 +405,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -406,20 +413,20 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   modalText: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
   },
   modalBold: {
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
   },
   modalActions: {
     flexDirection: 'row',
@@ -430,24 +437,24 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     alignItems: 'center',
   },
   modalCancelText: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: c.textSecondary,
   },
   modalDelete: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: Colors.error,
+    backgroundColor: c.error,
     alignItems: 'center',
   },
   modalDeleteText: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.white,
+    color: c.white,
   },
 });

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Star, Check, Crown } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionPlan } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +13,8 @@ import { isInTrial, getTrialDaysLeft } from '@/lib/subscription';
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const { user, profile } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +34,7 @@ export default function PlansScreen() {
     setIsLoading(false);
   };
 
-  const planColors = ['#C0C0C0', '#FFD700'];
+  const planColors = [c.platinum, c.gold];
   const planIcons = [Star, Crown];
 
   if (!isLoading && plans.length === 0 && user) {
@@ -39,7 +42,7 @@ export default function PlansScreen() {
       <View style={styles.container}>
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <TouchableOpacity onPress={() => router.back()}>
-            <ArrowLeft size={24} color={Colors.text} />
+            <ArrowLeft size={24} color={c.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Planes</Text>
         </View>
@@ -54,7 +57,7 @@ export default function PlansScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={24} color={Colors.text} />
+          <ArrowLeft size={24} color={c.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Planes</Text>
       </View>
@@ -78,7 +81,7 @@ export default function PlansScreen() {
             return (
               <View key={plan.id} style={[styles.planCard, { borderColor: planColors[i] }]}>
                 <View style={[styles.planHeader, { backgroundColor: planColors[i] }]}>
-                  <Icon size={24} color={Colors.white} />
+                  <Icon size={24} color={c.white} />
                   <Text style={styles.planName}>{plan.name}</Text>
                 </View>
                 <View style={styles.planBody}>
@@ -89,7 +92,7 @@ export default function PlansScreen() {
                   <View style={styles.features}>
                     {plan.features.map((f, fi) => (
                       <View key={fi} style={styles.featureRow}>
-                        <Check size={14} color={Colors.secondary} />
+                        <Check size={14} color={c.secondary} />
                         <Text style={styles.featureText}>{f}</Text>
                       </View>
                     ))}
@@ -108,26 +111,26 @@ export default function PlansScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: c.text },
   scroll: { padding: 16, paddingBottom: 40 },
-  intro: { fontSize: 15, color: Colors.textSecondary, marginBottom: 20 },
-  trialBanner: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', borderRadius: 14, padding: 16, marginBottom: 20 },
-  trialBannerTitle: { fontSize: 15, fontWeight: '700', color: '#166534', marginBottom: 4 },
-  trialBannerText: { fontSize: 13, color: '#15803D' },
+  intro: { fontSize: 15, color: c.textSecondary, marginBottom: 20 },
+  trialBanner: { backgroundColor: c.success + '15', borderWidth: 1, borderColor: c.success + '33', borderRadius: 14, padding: 16, marginBottom: 20 },
+  trialBannerTitle: { fontSize: 15, fontWeight: '700', color: c.success, marginBottom: 4 },
+  trialBannerText: { fontSize: 13, color: c.success },
   plansRow: { gap: 12 },
-  planCard: { backgroundColor: Colors.surface, borderRadius: 20, overflow: 'hidden', borderWidth: 2 },
+  planCard: { backgroundColor: c.surface, borderRadius: 20, overflow: 'hidden', borderWidth: 2 },
   planHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16 },
-  planName: { fontSize: 18, fontWeight: '800', color: Colors.white },
+  planName: { fontSize: 18, fontWeight: '800', color: c.white },
   planBody: { padding: 16 },
-  planPrice: { fontSize: 28, fontWeight: '800', color: Colors.text },
-  planPeriod: { fontSize: 14, fontWeight: '500', color: Colors.textMuted },
+  planPrice: { fontSize: 28, fontWeight: '800', color: c.text },
+  planPeriod: { fontSize: 14, fontWeight: '500', color: c.textMuted },
   features: { marginTop: 16, gap: 10 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  featureText: { fontSize: 14, color: Colors.text },
-  infoText: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18, marginTop: 16 },
+  featureText: { fontSize: 14, color: c.text },
+  infoText: { fontSize: 13, color: c.textSecondary, textAlign: 'center', lineHeight: 18, marginTop: 16 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyStateText: { fontSize: 16, color: Colors.textMuted, textAlign: 'center' },
+  emptyStateText: { fontSize: 16, color: c.textMuted, textAlign: 'center' },
 });

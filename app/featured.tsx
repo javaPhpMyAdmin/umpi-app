@@ -12,7 +12,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Star } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { Listing } from '@/types';
 import { ListingCard } from '@/components/ListingCard';
 import { SkeletonCard } from '@/components/SkeletonCard';
@@ -21,6 +22,9 @@ import { useListingsInfinite } from '@/hooks/useListingsInfinite';
 export default function FeaturedScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { isDark } = useTheme();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
 
   const {
     data,
@@ -69,7 +73,7 @@ export default function FeaturedScreen() {
         <View style={styles.statsRow}>
           {isFetching && !isLoading ? (
             <>
-              <ActivityIndicator size={12} color={Colors.primary} />
+              <ActivityIndicator size={12} color={c.primary} />
               <Text style={styles.statsSearching}>Buscando...</Text>
             </>
           ) : (
@@ -87,7 +91,7 @@ export default function FeaturedScreen() {
     if (isFetchingNextPage) {
       return (
         <View style={styles.footerLoader}>
-          <ActivityIndicator size="small" color={Colors.primary} />
+          <ActivityIndicator size="small" color={c.primary} />
           <Text style={styles.footerText}>Cargando más avisos...</Text>
         </View>
       );
@@ -134,7 +138,7 @@ export default function FeaturedScreen() {
     }
     return (
       <View style={styles.empty}>
-        <Star size={48} color={Colors.textMuted} style={{ marginBottom: 16 }} />
+        <Star size={48} color={c.textMuted} style={{ marginBottom: 16 }} />
         <Text style={styles.emptyTitle}>No hay avisos destacados</Text>
         <Text style={styles.emptySubtitle}>
           Los avisos destacados aparecen acá cuando los usuarios suscriben un plan.
@@ -152,10 +156,10 @@ export default function FeaturedScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={24} color={Colors.text} />
+          <ArrowLeft size={24} color={c.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Destacados</Text>
       </View>
@@ -179,8 +183,8 @@ export default function FeaturedScreen() {
           <RefreshControl
             refreshing={isFetching && !isLoading}
             onRefresh={refetch}
-            tintColor={Colors.primary}
-            colors={[Colors.primary]}
+            tintColor={c.primary}
+            colors={[c.primary]}
           />
         }
       />
@@ -188,8 +192,8 @@ export default function FeaturedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -197,9 +201,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: c.borderLight,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: c.text },
   list: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
   statsBar: { paddingHorizontal: 16, marginTop: 16, marginBottom: 4 },
@@ -207,11 +211,11 @@ const styles = StyleSheet.create({
   statsSearching: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
+    color: c.primary,
   },
   statsText: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: c.textMuted,
     fontWeight: '500',
   },
   gridColumn: { width: '50%' },
@@ -221,18 +225,18 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: Colors.textMuted,
+    color: c.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
   },
   ctaButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 14,
@@ -240,7 +244,7 @@ const styles = StyleSheet.create({
   ctaButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.white,
+    color: c.white,
   },
   skeletonGrid: {
     flexDirection: 'row',
@@ -251,19 +255,19 @@ const styles = StyleSheet.create({
   skeletonColumn: { width: '50%' },
   skeletonItem: { marginBottom: 12 },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: c.error + '15',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#FECACA',
+    borderBottomColor: c.error + '33',
   },
   errorBannerText: {
     fontSize: 13,
-    color: '#DC2626',
+    color: c.error,
     fontWeight: '500',
     textAlign: 'center',
   },
-  emptyText: { fontSize: 15, color: Colors.textMuted },
+  emptyText: { fontSize: 15, color: c.textMuted },
   footerLoader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -271,6 +275,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 20,
   },
-  footerText: { fontSize: 13, color: Colors.textMuted },
+  footerText: { fontSize: 13, color: c.textMuted },
   footerEnd: { paddingVertical: 20, alignItems: 'center' },
 });

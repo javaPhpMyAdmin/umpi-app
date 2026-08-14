@@ -4,7 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useMessages, useSendMessage } from '@/hooks/useMessages';
@@ -18,6 +19,9 @@ import { MessageTick } from '@/components/MessageTick';
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { isDark } = useTheme();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const { id, listingId, otherUserId, otherName: otherNameParam, otherAvatar: otherAvatarParam } = useLocalSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -208,17 +212,17 @@ export default function ChatScreen() {
             msgsQuery.fetchNextPage();
           }
         }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />}>
         {isNew || !conversationId ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>Inicia la conversacion</Text>
           </View>
         ) : msgsQuery.isLoading ? (
           <View style={styles.skeletonContainer}>
-            <SkeletonBubble align="left" />
-            <SkeletonBubble align="right" />
-            <SkeletonBubble align="left" />
-            <SkeletonBubble align="left" />
+            <SkeletonBubble align="left" styles={styles} />
+            <SkeletonBubble align="right" styles={styles} />
+            <SkeletonBubble align="left" styles={styles} />
+            <SkeletonBubble align="left" styles={styles} />
           </View>
         ) : !messages || messages.length === 0 ? (
           <View style={styles.empty}>
@@ -228,7 +232,7 @@ export default function ChatScreen() {
           <>
             {msgsQuery.isFetchingNextPage && (
               <View style={{ padding: 8, alignItems: 'center' }}>
-                <Text style={{ color: Colors.textMuted, fontSize: 12 }}>Cargando mensajes anteriores...</Text>
+                <Text style={{ color: c.textMuted, fontSize: 12 }}>Cargando mensajes anteriores...</Text>
               </View>
             )}
             {messages.map((msg, idx) => {
@@ -236,9 +240,9 @@ export default function ChatScreen() {
               return (
                 <View key={msg.id} style={[styles.messageRow, isMe ? styles.messageRowRight : styles.messageRowLeft]}>
                   <View style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
-                    <Text style={[styles.bubbleText, isMe ? { color: Colors.white } : { color: Colors.text }]}>{msg.content}</Text>
+                    <Text style={[styles.bubbleText, isMe ? { color: c.white } : { color: c.text }]}>{msg.content}</Text>
                     <View style={styles.bubbleFooter}>
-                      <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: Colors.textMuted }]}>
+                      <Text style={[styles.bubbleTime, isMe ? { color: 'rgba(255,255,255,0.7)' } : { color: c.textMuted }]}>
                         {new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
                       </Text>
                       {isMe && (
@@ -258,9 +262,9 @@ export default function ChatScreen() {
         )}
       </ScrollView>
       <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
-        <TextInput style={styles.input} placeholder="Escribe un mensaje..." placeholderTextColor={Colors.textMuted} value={input} onChangeText={setInput} multiline />
+        <TextInput style={styles.input} placeholder="Escribe un mensaje..." placeholderTextColor={c.textMuted} value={input} onChangeText={setInput} multiline />
         <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
-          <Send size={22} color={Colors.white} />
+          <Send size={22} color={c.white} />
         </TouchableOpacity>
       </View>
     </>
@@ -268,15 +272,15 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {/* Header fuera del KeyboardAvoidingView — siempre estático */}
       <View style={[styles.header, { marginTop: insets.top, paddingTop: insets.top + 12, paddingBottom: 28, paddingHorizontal: 20 }]}>
         <TouchableOpacity onPress={() => router.back()}>
-          <ArrowLeft size={24} color={Colors.white} />
+          <ArrowLeft size={24} color={c.white} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           {msgsQuery.isLoading && !otherProfile ? (
-            <SkeletonHeader />
+            <SkeletonHeader styles={styles} />
           ) : (
             <>
               <UserAvatar
@@ -334,7 +338,7 @@ export default function ChatScreen() {
   );
 }
 
-function SkeletonBubble({ align }: { align: 'left' | 'right' }) {
+function SkeletonBubble({ align, styles }: { align: 'left' | 'right'; styles: ReturnType<typeof createStyles> }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -359,7 +363,7 @@ function SkeletonBubble({ align }: { align: 'left' | 'right' }) {
   );
 }
 
-function SkeletonHeader() {
+function SkeletonHeader({ styles }: { styles: ReturnType<typeof createStyles> }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -381,42 +385,42 @@ function SkeletonHeader() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   keyboardArea: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.primary, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: c.primary, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.white, flexShrink: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: c.white, flexShrink: 1 },
   skeletonHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   skeletonAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.3)' },
   skeletonHeaderTitle: { width: 120, height: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)' },
-  listingHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  listingImage: { width: 40, height: 40, borderRadius: 8, backgroundColor: Colors.borderLight },
+  listingHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.surface, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.borderLight },
+  listingImage: { width: 40, height: 40, borderRadius: 8, backgroundColor: c.borderLight },
   listingInfo: { flex: 1, gap: 4 },
-  listingTitle: { fontSize: 14, fontWeight: '600', color: Colors.text },
-  listingPrice: { fontSize: 13, fontWeight: '700', color: Colors.primary, marginTop: 1 },
-  skeletonBlock: { backgroundColor: Colors.borderLight },
+  listingTitle: { fontSize: 14, fontWeight: '600', color: c.text },
+  listingPrice: { fontSize: 13, fontWeight: '700', color: c.primary, marginTop: 1 },
+  skeletonBlock: { backgroundColor: c.borderLight },
   skelTitle: { width: '70%', height: 14, borderRadius: 6 },
   skelPrice: { width: '40%', height: 12, borderRadius: 6 },
-  deletedBadge: { backgroundColor: Colors.error + '15', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  deletedBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.error },
+  deletedBadge: { backgroundColor: c.error + '15', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  deletedBadgeText: { fontSize: 11, fontWeight: '700', color: c.error },
   messages: { padding: 16, gap: 8, flexGrow: 1 },
   messageRow: { flexDirection: 'row', gap: 6, alignItems: 'flex-end', maxWidth: '80%' },
   messageRowLeft: { alignSelf: 'flex-start' },
   messageRowRight: { alignSelf: 'flex-end' },
   bubble: { maxWidth: '100%', padding: 12, borderRadius: 16 },
-  bubbleLeft: { backgroundColor: Colors.border, borderBottomLeftRadius: 4 },
-  bubbleRight: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
+  bubbleLeft: { backgroundColor: c.border, borderBottomLeftRadius: 4 },
+  bubbleRight: { backgroundColor: c.primary, borderBottomRightRadius: 4 },
   bubbleText: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   bubbleTime: { fontSize: 10, marginTop: 4, alignSelf: 'flex-end' },
   bubbleFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2 },
   skeletonContainer: { gap: 12, paddingTop: 8 },
   skeletonBubble: { width: '55%', height: 48, borderRadius: 16 },
-  skeletonLeft: { backgroundColor: Colors.border, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  skeletonRight: { backgroundColor: Colors.border, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  skeletonLeft: { backgroundColor: c.border, alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+  skeletonRight: { backgroundColor: c.border, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 40 },
-  emptyText: { fontSize: 14, color: Colors.textMuted },
-  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border },
-  input: { flex: 1, backgroundColor: Colors.borderLight, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: Colors.text, maxHeight: 120, lineHeight: 20 },
-  sendBtn: { backgroundColor: Colors.primary, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { fontSize: 14, color: c.textMuted },
+  inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.border },
+  input: { flex: 1, backgroundColor: c.borderLight, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: c.text, maxHeight: 120, lineHeight: 20 },
+  sendBtn: { backgroundColor: c.primary, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 });

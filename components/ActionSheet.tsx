@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Pressable, Animated, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 
 interface ActionSheetOption {
   label: string;
@@ -18,6 +19,8 @@ interface ActionSheetProps {
 
 export default function ActionSheet({ visible, onClose, options }: ActionSheetProps) {
   const insets = useSafeAreaInsets();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(false);
 
@@ -80,7 +83,7 @@ export default function ActionSheet({ visible, onClose, options }: ActionSheetPr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   wrapper: {
     zIndex: 1000,
   },
@@ -95,7 +98,7 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   sheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: c.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
   },
   optionBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: c.borderLight,
   },
   optionIcon: {
     width: 24,
@@ -125,10 +128,10 @@ const styles = StyleSheet.create({
   optionLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
+    color: c.text,
   },
   optionDestructive: {
-    color: Colors.error,
+    color: c.error,
     fontWeight: '700',
   },
   cancelBtn: {
@@ -136,11 +139,11 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
-    backgroundColor: '#D4D4D4',
+    backgroundColor: c.border,
   },
   cancelBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.text,
+    color: c.text,
   },
 });

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,20 +11,28 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Star, X } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useListingReviews, ReviewDisplay } from '@/hooks/useListingReviews';
 
 const starValues = [1, 2, 3, 4, 5];
 
+function useStyles() {
+  const c = useThemeColors();
+  return useMemo(() => createStyles(c), [c]);
+}
+
 function StarRating({ rating }: { rating: number }) {
+  const styles = useStyles();
+  const c = useThemeColors();
   return (
     <View style={styles.starsRow}>
       {starValues.map((s) => (
         <Star
           key={s}
           size={14}
-          color={Colors.star}
-          fill={s <= rating ? Colors.star : 'none'}
+          color={c.star}
+          fill={s <= rating ? c.star : 'none'}
         />
       ))}
     </View>
@@ -31,6 +40,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 function ReviewItem({ item }: { item: ReviewDisplay }) {
+  const styles = useStyles();
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -59,10 +69,12 @@ function ReviewItem({ item }: { item: ReviewDisplay }) {
 }
 
 function EmptyReviews() {
+  const styles = useStyles();
+  const c = useThemeColors();
   return (
     <View style={styles.empty}>
       <View style={styles.emptyIcon}>
-        <Star size={24} color={Colors.textMuted} />
+        <Star size={24} color={c.textMuted} />
       </View>
       <Text style={styles.emptyTitle}>Sin calificaciones</Text>
       <Text style={styles.emptyDesc}>
@@ -82,6 +94,8 @@ export default function ReviewsListModal({
   listingId: string;
 }) {
   const { height: screenHeight } = useWindowDimensions();
+  const styles = useStyles();
+  const c = useThemeColors();
   const { data: reviews, isLoading } = useListingReviews(
     visible ? listingId : undefined,
   );
@@ -115,7 +129,7 @@ export default function ReviewsListModal({
                   Calificaciones{reviews ? ` (${reviews.length})` : ''}
                 </Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                  <X size={18} color={Colors.textMuted} />
+                  <X size={18} color={c.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -123,7 +137,7 @@ export default function ReviewsListModal({
               {isLoading ? (
                 <ActivityIndicator
                   size="large"
-                  color={Colors.primary}
+                  color={c.primary}
                   style={{ marginVertical: 40 }}
                 />
               ) : (
@@ -147,7 +161,7 @@ export default function ReviewsListModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -163,7 +177,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
-    backgroundColor: Colors.background,
+    backgroundColor: c.background,
     borderRadius: 20,
     overflow: 'hidden',
     // iOS shadow
@@ -183,7 +197,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.border,
+    backgroundColor: c.border,
   },
   header: {
     flexDirection: 'row',
@@ -192,18 +206,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: c.border,
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
   },
   closeBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -216,12 +230,12 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: c.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -237,14 +251,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.white,
+    color: c.white,
   },
   cardInfo: {
     flex: 1,
@@ -252,11 +266,11 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.text,
+    color: c.text,
   },
   date: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: c.textMuted,
     marginTop: 1,
   },
   starsRow: {
@@ -271,7 +285,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
@@ -279,11 +293,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
   },
   emptyDesc: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: c.textMuted,
     textAlign: 'center',
   },
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,7 +10,8 @@ import {
   Platform,
 } from 'react-native';
 import { Star, X } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 
 interface ReviewModalProps {
   visible: boolean;
@@ -21,6 +22,8 @@ interface ReviewModalProps {
 }
 
 export default function ReviewModal({ visible, onClose, onSubmit, myRating }: ReviewModalProps) {
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const [selectedRating, setSelectedRating] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +63,7 @@ export default function ReviewModal({ visible, onClose, onSubmit, myRating }: Re
       >
         <View style={styles.card}>
           <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
-            <X size={20} color={Colors.textMuted} />
+            <X size={20} color={c.textMuted} />
           </TouchableOpacity>
 
           <Text style={styles.title}>
@@ -75,8 +78,8 @@ export default function ReviewModal({ visible, onClose, onSubmit, myRating }: Re
                   <Star
                     key={star}
                     size={36}
-                    color={star <= myRating! ? Colors.star : Colors.textMuted}
-                    fill={star <= myRating! ? Colors.star : 'none'}
+                    color={star <= myRating! ? c.star : c.textMuted}
+                    fill={star <= myRating! ? c.star : 'none'}
                   />
                 ))}
               </View>
@@ -92,8 +95,8 @@ export default function ReviewModal({ visible, onClose, onSubmit, myRating }: Re
                 >
                   <Star
                     size={36}
-                    color={star <= selectedRating ? Colors.star : Colors.textMuted}
-                    fill={star <= selectedRating ? Colors.star : 'none'}
+                    color={star <= selectedRating ? c.star : c.textMuted}
+                    fill={star <= selectedRating ? c.star : 'none'}
                   />
                 </TouchableOpacity>
               ))}
@@ -110,7 +113,7 @@ export default function ReviewModal({ visible, onClose, onSubmit, myRating }: Re
               activeOpacity={0.8}
             >
               {submitting ? (
-                <ActivityIndicator color={Colors.white} size="small" />
+                <ActivityIndicator color={c.white} size="small" />
               ) : (
                 <Text style={styles.submitBtnText}>Enviar calificación</Text>
               )}
@@ -128,7 +131,7 @@ export default function ReviewModal({ visible, onClose, onSubmit, myRating }: Re
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -139,7 +142,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 20,
     padding: 28,
     alignItems: 'center',
@@ -154,14 +157,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: Colors.text,
+    color: c.text,
     marginBottom: 20,
     marginTop: 4,
   },
   reviewedLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textMuted,
+    color: c.textMuted,
     marginBottom: 12,
   },
   starsRow: {
@@ -170,14 +173,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    color: Colors.error,
+    color: c.error,
     fontSize: 13,
     textAlign: 'center',
     marginBottom: 12,
   },
   submitBtn: {
     width: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     paddingVertical: 15,
     borderRadius: 14,
     alignItems: 'center',
@@ -187,7 +190,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitBtnText: {
-    color: Colors.white,
+    color: c.white,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -195,7 +198,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   cancelText: {
-    color: Colors.textMuted,
+    color: c.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },

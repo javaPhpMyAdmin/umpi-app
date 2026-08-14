@@ -6,7 +6,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, X, MapPin, DollarSign, Tag, FileText, Plus, Sparkles } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { Colors } from '@/constants/colors';
+import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { uploadImage } from '@/lib/upload';
@@ -25,6 +26,8 @@ export default function PublishScreen() {
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const editMode = !!edit;
   const { data: editListing, isLoading: editLoading } = useListing(edit || null);
 
@@ -331,13 +334,13 @@ export default function PublishScreen() {
       <View style={styles.container}>
         <View style={[styles.emptyHeader, { marginTop: insets.top, paddingTop: 40, paddingBottom: 40 }]}>
           <View style={styles.headerRow}>
-            <Sparkles size={32} color={Colors.white} />
+            <Sparkles size={32} color={c.white} />
             <Text style={styles.emptyHeaderTitle}>Publicar</Text>
           </View>
           <Text style={styles.headerSubtitle}>¡Dale, animate a publicar!</Text>
         </View>
         <View style={styles.emptyAuth}>
-          <Plus size={48} color={Colors.textMuted} />
+          <Plus size={48} color={c.textMuted} />
           <Text style={styles.emptyAuthTitle}>Inicia sesion para publicar</Text>
           <Text style={styles.emptyAuthSubtitle}>Publica tus avisos gratuitamente. Solo necesitas una cuenta.</Text>
           <TouchableOpacity style={styles.emptyAuthBtn} onPress={() => router.push('/login')}>
@@ -359,7 +362,7 @@ export default function PublishScreen() {
             router.back();
           }
         }}>
-          <ArrowLeft size={24} color={Colors.text} />
+          <ArrowLeft size={24} color={c.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{editMode ? 'Editar aviso' : 'Nueva publicacion'}</Text>
       </View>
@@ -384,8 +387,8 @@ export default function PublishScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Titulo <Text style={styles.required}>*</Text></Text>
           <View style={styles.inputRow}>
-            <Tag size={18} color={Colors.textMuted} />
-            <TextInput style={styles.input} placeholder="Que queres publicar?" placeholderTextColor={Colors.textMuted} value={title} onChangeText={setTitle} maxLength={100} />
+            <Tag size={18} color={c.textMuted} />
+            <TextInput style={styles.input} placeholder="Que queres publicar?" placeholderTextColor={c.textMuted} value={title} onChangeText={setTitle} maxLength={100} />
           </View>
           <Text style={styles.charCounter}>{title.length}/100</Text>
         </View>
@@ -393,8 +396,8 @@ export default function PublishScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Descripcion</Text>
           <View style={styles.inputRow}>
-            <FileText size={18} color={Colors.textMuted} />
-            <TextInput style={[styles.input, styles.textArea]} placeholder="Describe tu producto o servicio..." placeholderTextColor={Colors.textMuted} value={description} onChangeText={setDescription} multiline numberOfLines={4} maxLength={500} />
+            <FileText size={18} color={c.textMuted} />
+            <TextInput style={[styles.input, styles.textArea]} placeholder="Describe tu producto o servicio..." placeholderTextColor={c.textMuted} value={description} onChangeText={setDescription} multiline numberOfLines={4} maxLength={500} />
           </View>
           <Text style={styles.charCounter}>{description.length}/500</Text>
         </View>
@@ -402,17 +405,17 @@ export default function PublishScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Precio <Text style={styles.required}>*</Text></Text>
           <View style={styles.priceRow}>
-            <TouchableOpacity style={[styles.priceTypeBtn, priceType === 'fixed' && { backgroundColor: Colors.primary }]} onPress={() => setPriceType('fixed')}>
-              <Text style={[styles.priceTypeText, priceType === 'fixed' && { color: Colors.white }]}>Fijo</Text>
+            <TouchableOpacity style={[styles.priceTypeBtn, priceType === 'fixed' && { backgroundColor: c.primary }]} onPress={() => setPriceType('fixed')}>
+              <Text style={[styles.priceTypeText, priceType === 'fixed' && { color: c.white }]}>Fijo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.priceTypeBtn, priceType === 'contact' && { backgroundColor: Colors.primary }]} onPress={() => setPriceType('contact')}>
-              <Text style={[styles.priceTypeText, priceType === 'contact' && { color: Colors.white }]}>Consultar</Text>
+            <TouchableOpacity style={[styles.priceTypeBtn, priceType === 'contact' && { backgroundColor: c.primary }]} onPress={() => setPriceType('contact')}>
+              <Text style={[styles.priceTypeText, priceType === 'contact' && { color: c.white }]}>Consultar</Text>
             </TouchableOpacity>
           </View>
           {priceType === 'fixed' && (
             <View style={styles.inputRow}>
-              <DollarSign size={18} color={Colors.textMuted} />
-              <TextInput style={styles.input} placeholder="Precio en ARS" placeholderTextColor={Colors.textMuted} value={price} onChangeText={setPrice} keyboardType="numeric" />
+              <DollarSign size={18} color={c.textMuted} />
+              <TextInput style={styles.input} placeholder="Precio en ARS" placeholderTextColor={c.textMuted} value={price} onChangeText={setPrice} keyboardType="numeric" />
             </View>
           )}
         </View>
@@ -421,11 +424,11 @@ export default function PublishScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Condicion</Text>
             <View style={styles.priceRow}>
-              <TouchableOpacity style={[styles.priceTypeBtn, condition === 'new' && { backgroundColor: Colors.primary }]} onPress={() => setCondition('new')}>
-                <Text style={[styles.priceTypeText, condition === 'new' && { color: Colors.white }]}>Nuevo</Text>
+              <TouchableOpacity style={[styles.priceTypeBtn, condition === 'new' && { backgroundColor: c.primary }]} onPress={() => setCondition('new')}>
+                <Text style={[styles.priceTypeText, condition === 'new' && { color: c.white }]}>Nuevo</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.priceTypeBtn, condition === 'used' && { backgroundColor: Colors.primary }]} onPress={() => setCondition('used')}>
-                <Text style={[styles.priceTypeText, condition === 'used' && { color: Colors.white }]}>Usado</Text>
+              <TouchableOpacity style={[styles.priceTypeBtn, condition === 'used' && { backgroundColor: c.primary }]} onPress={() => setCondition('used')}>
+                <Text style={[styles.priceTypeText, condition === 'used' && { color: c.white }]}>Usado</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -435,21 +438,21 @@ export default function PublishScreen() {
           <Text style={styles.sectionLabel}>Ubicacion</Text>
           {showCustomLocation ? (
             <View style={styles.inputRow}>
-              <MapPin size={18} color={Colors.textMuted} />
+              <MapPin size={18} color={c.textMuted} />
               <TextInput
                 style={styles.input}
                 placeholder="Escribí tu ubicación..."
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={c.textMuted}
                 value={location}
                 onChangeText={setLocation}
               />
               <TouchableOpacity onPress={() => { setShowCustomLocation(false); setLocation(''); setCityId(null); }}>
-                <X size={18} color={Colors.textMuted} />
+                <X size={18} color={c.textMuted} />
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity style={styles.inputRow} onPress={() => setShowLocationPicker(true)} activeOpacity={0.7}>
-              <MapPin size={18} color={gpsDetected ? Colors.error : location ? Colors.primary : Colors.textMuted} />
+              <MapPin size={18} color={gpsDetected ? c.error : location ? c.primary : c.textMuted} />
               {locationLoading ? (
                 <Text style={[styles.input, styles.loadingText]}>Obteniendo ubicacion...</Text>
               ) : (
@@ -471,13 +474,13 @@ export default function PublishScreen() {
                   <TouchableOpacity
                     style={styles.imageRemoveBtn}
                     onPress={() => handleRemoveImage(index)}>
-                    <X size={14} color={Colors.white} />
+                    <X size={14} color={c.white} />
                   </TouchableOpacity>
                 </View>
               ))}
               {images.length < maxImages && (
                 <TouchableOpacity style={styles.addImageBtn} onPress={handlePickImage}>
-                  <Plus size={24} color={Colors.textMuted} />
+                  <Plus size={24} color={c.textMuted} />
                   <Text style={styles.addImageText}>Agregar</Text>
                 </TouchableOpacity>
               )}
@@ -499,14 +502,14 @@ export default function PublishScreen() {
                   value={featureToggle}
                   onValueChange={setFeatureToggle}
                   disabled={!featuredPending && !featuredError && (featured?.remaining ?? 0) <= 0}
-                  trackColor={{ false: Colors.border, true: Colors.primary }}
-                  thumbColor={featureToggle ? Colors.white : '#f4f3f4'}
+                  trackColor={{ false: c.border, true: c.primary }}
+                  thumbColor={featureToggle ? c.white : '#f4f3f4'}
                 />
               </View>
               {featuredPending ? (
                 <Text style={styles.featureRemaining}>Cargando...</Text>
               ) : featuredError ? (
-                <Text style={[styles.featureRemaining, { color: Colors.error }]}>
+                <Text style={[styles.featureRemaining, { color: c.error }]}>
                   Error al cargar tus destacados
                 </Text>
               ) : (featured?.remaining ?? 0) > 0 ? (
@@ -514,7 +517,7 @@ export default function PublishScreen() {
                   Te {(featured?.remaining ?? 0) === 1 ? 'queda' : 'quedan'} {featured?.remaining} destacado{featured?.remaining !== 1 ? 's' : ''} de {featured?.maxFeatured} este período
                 </Text>
               ) : (
-                <Text style={[styles.featureRemaining, { color: Colors.error }]}>
+                <Text style={[styles.featureRemaining, { color: c.error }]}>
                   Agotaste tus destacados de este período
                 </Text>
               )}
@@ -544,7 +547,7 @@ export default function PublishScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Seleccionar ubicacion</Text>
               <TouchableOpacity onPress={() => setShowLocationPicker(false)}>
-                <X size={20} color={Colors.text} />
+                <X size={20} color={c.text} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -572,7 +575,7 @@ export default function PublishScreen() {
                     handleSelectOther();
                   }}
                 >
-                  <Text style={[styles.locationItemText, { color: Colors.primary, fontWeight: '600' }]}>
+                  <Text style={[styles.locationItemText, { color: c.primary, fontWeight: '600' }]}>
                     Otra ciudad...
                   </Text>
                 </TouchableOpacity>
@@ -585,56 +588,56 @@ export default function PublishScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const createStyles = (c: Palette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: c.text },
 
-  emptyHeader: { backgroundColor: Colors.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  emptyHeaderTitle: { fontSize: 34, fontWeight: '800', color: Colors.white },
+  emptyHeader: { backgroundColor: c.primary, paddingTop: 48, paddingBottom: 18, paddingHorizontal: 20, borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
+  emptyHeaderTitle: { fontSize: 34, fontWeight: '800', color: c.white },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerSubtitle: { fontSize: 17, fontWeight: '600', color: 'rgba(255,255,255,0.75)', marginTop: 6 },
   emptyAuth: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 16 },
-  emptyAuthTitle: { fontSize: 16, fontWeight: '600', color: Colors.text, textAlign: 'center' },
-  emptyAuthSubtitle: { fontSize: 15, fontWeight: '600', color: '#4B5563', textAlign: 'center', lineHeight: 22, paddingHorizontal: 24 },
-  emptyAuthBtn: { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
-  emptyAuthBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
+  emptyAuthTitle: { fontSize: 16, fontWeight: '600', color: c.text, textAlign: 'center' },
+  emptyAuthSubtitle: { fontSize: 15, fontWeight: '600', color: c.textSecondary, textAlign: 'center', lineHeight: 22, paddingHorizontal: 24 },
+  emptyAuthBtn: { backgroundColor: c.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
+  emptyAuthBtnText: { color: c.white, fontWeight: '700', fontSize: 14 },
   form: { padding: 16, gap: 20, paddingBottom: 40 },
   section: { gap: 8 },
-  sectionLabel: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
-  required: { color: Colors.error, fontWeight: '700' },
+  sectionLabel: { fontSize: 14, fontWeight: '600', color: c.textSecondary },
+  required: { color: c.error, fontWeight: '700' },
   categoryRow: { flexDirection: 'row', gap: 8 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, gap: 8 },
-  input: { flex: 1, fontSize: 14, color: Colors.text },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.surface, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 14, gap: 8 },
+  input: { flex: 1, fontSize: 14, color: c.text },
   textArea: { height: 80, textAlignVertical: 'top' },
   priceRow: { flexDirection: 'row', gap: 8 },
-  priceTypeBtn: { backgroundColor: Colors.borderLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  priceTypeText: { fontSize: 13, fontWeight: '600', color: Colors.text },
-  publishBtn: { backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
-  publishBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
+  priceTypeBtn: { backgroundColor: c.borderLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  priceTypeText: { fontSize: 13, fontWeight: '600', color: c.text },
+  publishBtn: { backgroundColor: c.primary, padding: 16, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  publishBtnText: { color: c.white, fontWeight: '700', fontSize: 16 },
   imageRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   imageThumbWrapper: { position: 'relative' },
-  imageThumb: { width: 80, height: 80, borderRadius: 12, backgroundColor: Colors.borderLight },
+  imageThumb: { width: 80, height: 80, borderRadius: 12, backgroundColor: c.borderLight },
   imageRemoveBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  addImageBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
-  addImageText: { fontSize: 11, color: Colors.textMuted, fontWeight: '500' },
-  placeholder: { color: Colors.textMuted },
-  loadingText: { color: Colors.textMuted, fontStyle: 'italic' },
-  featureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14 },
+  addImageBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1.5, borderColor: c.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  addImageText: { fontSize: 11, color: c.textMuted, fontWeight: '500' },
+  placeholder: { color: c.textMuted },
+  loadingText: { color: c.textMuted, fontStyle: 'italic' },
+  featureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: c.surface, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14 },
   featureLabelContainer: { flex: 1, marginRight: 12 },
-  featureHelper: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
-  featureRemaining: { fontSize: 12, color: Colors.primary, fontWeight: '600', marginTop: 4, paddingLeft: 16 },
-  banner: { backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.primary, borderStyle: 'dashed' },
-  bannerText: { fontSize: 14, color: Colors.text, fontWeight: '600', marginBottom: 12, lineHeight: 20 },
-  bannerBtn: { backgroundColor: Colors.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, alignSelf: 'flex-start' },
-  bannerBtnText: { color: Colors.white, fontWeight: '700', fontSize: 13 },
-  charCounter: { fontSize: 12, color: Colors.textMuted, textAlign: 'right', marginTop: 2 },
+  featureHelper: { fontSize: 12, color: c.textMuted, marginTop: 2 },
+  featureRemaining: { fontSize: 12, color: c.primary, fontWeight: '600', marginTop: 4, paddingLeft: 16 },
+  banner: { backgroundColor: c.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: c.primary, borderStyle: 'dashed' },
+  bannerText: { fontSize: 14, color: c.text, fontWeight: '600', marginBottom: 12, lineHeight: 20 },
+  bannerBtn: { backgroundColor: c.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, alignSelf: 'flex-start' },
+  bannerBtnText: { color: c.white, fontWeight: '700', fontSize: 13 },
+  charCounter: { fontSize: 12, color: c.textMuted, textAlign: 'right', marginTop: 2 },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
-  locationItem: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
-  locationItemActive: { backgroundColor: Colors.borderLight },
-  locationItemText: { fontSize: 15, color: Colors.text },
-  locationItemTextActive: { color: Colors.primary, fontWeight: '600' },
+  modalContent: { backgroundColor: c.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: c.borderLight },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: c.text },
+  locationItem: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.borderLight },
+  locationItemActive: { backgroundColor: c.borderLight },
+  locationItemText: { fontSize: 15, color: c.text },
+  locationItemTextActive: { color: c.primary, fontWeight: '600' },
 });

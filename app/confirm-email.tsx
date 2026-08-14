@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { Colors } from '@/constants/colors';
 
 /**
  * ConfirmEmailScreen — handles the Magic Link callback on mobile.
@@ -14,6 +15,8 @@ import { Colors } from '@/constants/colors';
  */
 export default function ConfirmEmailScreen() {
   const router = useRouter();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const { session, isLoading } = useAuth();
 
   useEffect(() => {
@@ -26,17 +29,17 @@ export default function ConfirmEmailScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={Colors.primary} />
+      <ActivityIndicator size="large" color={c.primary} />
       <Text style={styles.title}>Verificando tu email...</Text>
       <Text style={styles.subtitle}>Un momento mientras confirmamos tu cuenta.</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
@@ -44,13 +47,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     marginTop: 20,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textMuted,
+    color: c.textMuted,
     marginTop: 8,
     textAlign: 'center',
   },

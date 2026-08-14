@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Pressable, Animated, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 
 interface Props {
   visible: boolean;
@@ -27,6 +28,8 @@ export default function BottomSheetDialog({
   destructiveSecondary,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(false);
 
@@ -84,7 +87,7 @@ export default function BottomSheetDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   wrapper: {
     zIndex: 1000,
   },
@@ -93,7 +96,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFECE0',
+    backgroundColor: c.peachSoft,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
@@ -104,7 +107,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: c.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -112,19 +115,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.text,
+    color: c.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   message: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
   },
   primaryBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
@@ -132,7 +135,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   primaryBtnText: {
-    color: Colors.white,
+    color: c.white,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -141,16 +144,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     width: '100%',
-    backgroundColor: '#FFE2D0',
+    backgroundColor: c.peachMid,
   },
   secondaryBtnText: {
-    color: Colors.textSecondary,
+    color: c.textSecondary,
     fontWeight: '600',
     fontSize: 15,
   },
   destructiveBtn: {},
   destructiveBtnText: {
-    color: Colors.error,
+    color: c.error,
     fontWeight: '700',
   },
 });

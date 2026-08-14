@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View, Animated, ViewStyle } from 'react-native';
-import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
+import type { Palette } from '@/constants/colors';
 
 interface SkeletonCardProps {
   variant?: 'featured' | 'compact' | 'conversation' | 'detail';
@@ -8,6 +9,8 @@ interface SkeletonCardProps {
 }
 
 export function SkeletonCard({ variant = 'featured', style }: SkeletonCardProps) {
+  const c = useThemeColors();
+  const styles = useMemo(() => createStyles(c), [c]);
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -30,7 +33,7 @@ export function SkeletonCard({ variant = 'featured', style }: SkeletonCardProps)
   }, [opacity]);
 
   const SkeletonBlock = ({ style: blockStyle }: { style: ViewStyle }) => (
-    <Animated.View style={[blockStyle, { opacity, backgroundColor: Colors.border }]} />
+    <Animated.View style={[blockStyle, { opacity, backgroundColor: c.border }]} />
   );
 
   if (variant === 'conversation') {
@@ -108,18 +111,17 @@ export function SkeletonCard({ variant = 'featured', style }: SkeletonCardProps)
   );
 }
 
-const skeletonBase = {
-  backgroundColor: Colors.border,
-};
+// Bloque skeleton con el color de borde de la paleta activa.
+const skeletonBase = (c: Palette) => ({ backgroundColor: c.border });
 
-const styles = StyleSheet.create({
+const createStyles = (c: Palette) => StyleSheet.create({
   // Featured variant
   featured: {
     width: 220,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: Colors.shadow,
+    shadowColor: c.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 12,
@@ -130,7 +132,7 @@ const styles = StyleSheet.create({
     height: 140,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   featuredContent: {
     padding: 12,
@@ -140,28 +142,28 @@ const styles = StyleSheet.create({
     height: 14,
     width: '85%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   price: {
     height: 16,
     width: '50%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   meta: {
     height: 12,
     width: '65%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
 
   // Compact variant
   compact: {
     width: '48%',
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: Colors.shadow,
+    shadowColor: c.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 8,
@@ -173,7 +175,7 @@ const styles = StyleSheet.create({
     height: 110,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   compactContent: {
     padding: 10,
@@ -183,30 +185,30 @@ const styles = StyleSheet.create({
     height: 13,
     width: '90%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   compactPrice: {
     height: 15,
     width: '45%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   compactMeta: {
     height: 11,
     width: '60%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
 
   // Detail variant (full-page listing detail skeleton)
   detailContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: c.background,
   },
   detailImage: {
     width: '100%',
     height: 280,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailContent: {
     padding: 20,
@@ -217,13 +219,13 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     width: '80%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailPrice: {
     height: 26,
     borderRadius: 6,
     width: '35%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailMetaRow: {
     flexDirection: 'row',
@@ -234,7 +236,7 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 6,
     width: 70,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailSectionDivider: {
     height: 2,
@@ -244,25 +246,25 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 6,
     width: '40%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailLine: {
     height: 14,
     borderRadius: 4,
     width: '100%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailLineMedium: {
     height: 14,
     borderRadius: 4,
     width: '70%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailLineShort: {
     height: 14,
     borderRadius: 4,
     width: '50%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailSellerRow: {
     flexDirection: 'row',
@@ -274,7 +276,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailSellerInfo: {
     flex: 1,
@@ -284,36 +286,36 @@ const styles = StyleSheet.create({
     height: 15,
     borderRadius: 6,
     width: '45%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailSellerMeta: {
     height: 12,
     borderRadius: 6,
     width: '55%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   detailBottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: c.border,
   },
   detailContactBtn: {
     height: 52,
     borderRadius: 14,
     width: '100%',
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
 
   // Conversation variant
   conversation: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: c.surface,
     padding: 14,
     borderRadius: 16,
     gap: 12,
@@ -323,7 +325,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   convContent: {
     flex: 1,
@@ -333,12 +335,13 @@ const styles = StyleSheet.create({
     height: 15,
     width: '40%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
   convSubtitle: {
     height: 12,
     width: '65%',
     borderRadius: 6,
-    ...skeletonBase,
+    ...skeletonBase(c),
   },
 });
+
