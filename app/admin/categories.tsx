@@ -122,7 +122,6 @@ export default function AdminCategoriesScreen() {
         primaryLabel="Eliminar"
         primaryAction={confirmDelete}
         secondaryLabel="Cancelar"
-        destructiveSecondary
       />
     </View>
   );

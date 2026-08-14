@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Image, Modal, FlatList, Pressable, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, X, MapPin, DollarSign, Tag, FileText, Plus, Sparkles } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
 import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,7 +42,6 @@ export default function PublishScreen() {
   const [initialImages, setInitialImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [prefilled, setPrefilled] = useState(false);
-  const locationDetected = useRef(false);
 
   const hasActivePlan = hasActiveBenefits(profile);
   // Límite real de fotos desde `subscription_plans` (DB-first). Mientras la
@@ -72,8 +70,6 @@ export default function PublishScreen() {
     useFeaturedRemaining(hasActivePlan ? getEffectivePlan(profile) : undefined);
 
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [gpsDetected, setGpsDetected] = useState(false);
   const [cities, setCities] = useState<City[]>([]);
   const [showCustomLocation, setShowCustomLocation] = useState(false);
 
@@ -107,10 +103,8 @@ export default function PublishScreen() {
     setImages([]);
     setInitialImages([]);
     setPrefilled(false);
-    setGpsDetected(false);
     setShowCustomLocation(false);
     setFeatureToggle(false);
-    locationDetected.current = false;
   }, []);
 
   // Prefill form when edit listing data arrives
@@ -144,60 +138,10 @@ export default function PublishScreen() {
     }
   }, [editMode, editLoading, editListing, prefilled]);
 
-  // Detectar ubicación automática — primero cache, después GPS con feedback
-  useEffect(() => {
-    if (!user || editMode || locationDetected.current || prefilled) return;
-
-    let cancelled = false;
-    (async () => {
-      setLocationLoading(true);
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (cancelled) return;
-        if (status !== 'granted') {
-          // Permiso denegado — el usuario elige manual
-          return;
-        }
-
-        // Intentar ubicación cacheada primero (instantáneo)
-        const cached = await Location.getLastKnownPositionAsync({ maxAge: 300_000 }); // 5 min
-        if (cancelled) return;
-        const coords = cached?.coords || (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })).coords;
-        if (cancelled) return;
-
-        const [reverse] = await Location.reverseGeocodeAsync(coords);
-        if (cancelled) return;
-
-        if (reverse?.city) {
-          let region = reverse.region || '';
-          region = region.replace(/^(Departamento de|Provincia de)\s+/i, '');
-
-          let formatted: string;
-          if (reverse.district) {
-            formatted = `${reverse.district}, ${reverse.city}`;
-          } else if (region && region !== reverse.city) {
-            formatted = `${reverse.city}, ${region}`;
-          } else {
-            formatted = reverse.city;
-          }
-          setLocation(formatted);
-          setGpsDetected(true);
-        }
-        locationDetected.current = true;
-      } catch {
-        // Si falla, el usuario puede elegir manualmente
-      } finally {
-        if (!cancelled) setLocationLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [editMode, prefilled]);
-
   const handleSelectOther = useCallback(() => {
     setCityId(null);
     setLocation('');
     setShowCustomLocation(true);
-    setGpsDetected(false);
     setShowLocationPicker(false);
   }, []);
 
@@ -452,14 +396,10 @@ export default function PublishScreen() {
             </View>
           ) : (
             <TouchableOpacity style={styles.inputRow} onPress={() => setShowLocationPicker(true)} activeOpacity={0.7}>
-              <MapPin size={18} color={gpsDetected ? c.error : location ? c.primary : c.textMuted} />
-              {locationLoading ? (
-                <Text style={[styles.input, styles.loadingText]}>Obteniendo ubicacion...</Text>
-              ) : (
-                <Text style={[styles.input, !location && styles.placeholder]}>
-                  {location || 'Seleccionar ciudad...'}
-                </Text>
-              )}
+              <MapPin size={18} color={location ? c.primary : c.textMuted} />
+              <Text style={[styles.input, !location && styles.placeholder]}>
+                {location || 'Seleccionar ciudad...'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -559,7 +499,6 @@ export default function PublishScreen() {
                   onPress={() => {
                     setCityId(item.id);
                     setLocation(item.name);
-                    setGpsDetected(false);
                     setShowLocationPicker(false);
                   }}
                 >
@@ -622,7 +561,6 @@ const createStyles = (c: Palette) => StyleSheet.create({
   addImageBtn: { width: 80, height: 80, borderRadius: 12, borderWidth: 1.5, borderColor: c.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
   addImageText: { fontSize: 11, color: c.textMuted, fontWeight: '500' },
   placeholder: { color: c.textMuted },
-  loadingText: { color: c.textMuted, fontStyle: 'italic' },
   featureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: c.surface, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14 },
   featureLabelContainer: { flex: 1, marginRight: 12 },
   featureHelper: { fontSize: 12, color: c.textMuted, marginTop: 2 },

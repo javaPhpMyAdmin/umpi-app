@@ -1,14 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Switch } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Save, Shield, ShieldCheck, FileText, ChevronRight, Moon } from 'lucide-react-native';
+import { ArrowLeft, Save, Shield, ShieldCheck, FileText, ChevronRight, Moon, Trash2 } from 'lucide-react-native';
 import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
 import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { showError, showSuccess } from '@/lib/toast';
 import { LEGAL_DOCUMENTS_CONFIG } from '@/lib/legalContent';
+import BottomSheetDialog from '@/components/BottomSheetDialog';
+import { useDeleteAccount } from '@/hooks/useDeleteAccount';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -16,11 +18,14 @@ export default function SettingsScreen() {
   const { isDark, toggleTheme } = useTheme();
   const c = useThemeColors();
   const styles = useMemo(() => createStyles(c), [c]);
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [location, setLocation] = useState(profile?.location || '');
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const deleteAccountMutation = useDeleteAccount();
 
   // Sync form fields when profile loads (async)
   useEffect(() => {
@@ -44,6 +49,34 @@ export default function SettingsScreen() {
       await refreshProfile();
       showSuccess('Exito', 'Perfil actualizado');
     }
+  };
+
+  const handleDeleteAccount = async () => {
+    // Double-tap guard: a pending RPC must not fire again (the dialog closes
+    // immediately, so isPending is the only reliable re-entry check). After
+    // the RPC succeeds, isFinishing keeps the button/dialog locked while
+    // signOut + navigation are still in flight — isPending alone goes false
+    // right after the RPC resolves, and a second tap would fire the RPC
+    // again on an already-deleted account.
+    if (isFinishing || deleteAccountMutation.isPending) return;
+    setShowDeleteConfirm(false);
+    try {
+      await deleteAccountMutation.mutateAsync();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo eliminar la cuenta';
+      showError('Error', msg);
+      return;
+    }
+    // Account is deleted server-side — always leave the screen. A local
+    // signOut failure (session already invalid) must never strand the user
+    // on a screen whose account no longer exists.
+    setIsFinishing(true);
+    try {
+      await signOut();
+    } catch {
+      // ignore: navigation below is what matters
+    }
+    router.replace('/login');
   };
 
   return (
@@ -109,7 +142,39 @@ export default function SettingsScreen() {
             <ChevronRight size={18} color={c.textMuted} />
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.deleteAccountBtn}
+          onPress={() => setShowDeleteConfirm(true)}
+          disabled={deleteAccountMutation.isPending || isFinishing}
+          activeOpacity={0.7}
+        >
+          {deleteAccountMutation.isPending || isFinishing ? (
+            <ActivityIndicator size="small" color={c.error} />
+          ) : (
+            <Trash2 size={18} color={c.error} />
+          )}
+          <Text style={styles.deleteAccountText}>
+            {deleteAccountMutation.isPending
+              ? 'Eliminando cuenta...'
+              : isFinishing
+                ? 'Cerrando sesión...'
+                : 'Eliminar cuenta'}
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      <BottomSheetDialog
+        visible={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        icon={<Trash2 size={28} color={c.error} />}
+        title="Eliminar cuenta"
+        message="Se eliminarán de forma permanente tu perfil, publicaciones, chats e imágenes. Esta acción no se puede deshacer."
+        primaryLabel="Eliminar cuenta"
+        primaryAction={handleDeleteAccount}
+        primaryDisabled={deleteAccountMutation.isPending || isFinishing}
+        secondaryLabel="Cancelar"
+      />
     </View>
   );
 }
@@ -132,4 +197,6 @@ const createStyles = (c: Palette) => StyleSheet.create({
   legalSection: { marginTop: 8, gap: 8 },
   legalRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.surface, padding: 14, borderRadius: 14, gap: 12 },
   legalRowText: { flex: 1, fontSize: 15, fontWeight: '600', color: c.text },
+  deleteAccountBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.error },
+  deleteAccountText: { fontSize: 15, fontWeight: '700', color: c.error },
 });

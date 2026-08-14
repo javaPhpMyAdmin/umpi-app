@@ -117,6 +117,8 @@ export default function ProfileScreen() {
   };
 
   const handleConfirmDelete = () => {
+    // Double-tap guard (same class as the listing/chat confirm handlers).
+    if (deleteMutation.isPending) return;
     if (!selectedListingId) return;
     setShowDeleteConfirm(false);
     const listing = myListings.find((l) => l.id === selectedListingId);
@@ -360,7 +362,6 @@ export default function ProfileScreen() {
         primaryLabel="Eliminar"
         primaryAction={handleConfirmDelete}
         secondaryLabel="Cancelar"
-        destructiveSecondary
       />
     </View>
   );

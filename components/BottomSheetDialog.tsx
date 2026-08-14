@@ -12,6 +12,8 @@ interface Props {
   message: string;
   primaryLabel: string;
   primaryAction: () => void;
+  /** Disables the primary button while its action is pending (double-tap guard). */
+  primaryDisabled?: boolean;
   secondaryLabel?: string;
   destructiveSecondary?: boolean;
 }
@@ -24,6 +26,7 @@ export default function BottomSheetDialog({
   message,
   primaryLabel,
   primaryAction,
+  primaryDisabled,
   secondaryLabel,
   destructiveSecondary,
 }: Props) {
@@ -68,7 +71,11 @@ export default function BottomSheetDialog({
           {icon && <View style={styles.iconWrap}>{icon}</View>}
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={primaryAction}>
+          <TouchableOpacity
+            style={[styles.primaryBtn, primaryDisabled && styles.primaryBtnDisabled]}
+            onPress={primaryAction}
+            disabled={primaryDisabled}
+          >
             <Text style={styles.primaryBtnText}>{primaryLabel}</Text>
           </TouchableOpacity>
           {secondaryLabel && (
@@ -138,6 +145,9 @@ const createStyles = (c: Palette) => StyleSheet.create({
     color: c.white,
     fontWeight: '700',
     fontSize: 16,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.6,
   },
   secondaryBtn: {
     paddingVertical: 12,

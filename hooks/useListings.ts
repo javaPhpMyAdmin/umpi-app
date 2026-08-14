@@ -2,9 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Listing } from '@/types';
 import { deleteImage } from '@/lib/upload';
+import { useBlockedUserIds } from '@/hooks/useBlockedUserIds';
 
 export function useListings() {
-  return useQuery<Listing[]>({
+  // Hide listings published by blocked users (client-side filter; the final
+  // array is filtered so query keys and call sites stay unchanged).
+  const { data: blockedIds = [] } = useBlockedUserIds();
+  const query = useQuery<Listing[]>({
     queryKey: ['listings'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -20,6 +24,14 @@ export function useListings() {
     },
     staleTime: 60_000, // 1 min
   });
+
+  const blocked = new Set(blockedIds);
+  return {
+    ...query,
+    data: query.data
+      ? query.data.filter((listing) => !blocked.has(listing.user_id))
+      : query.data,
+  };
 }
 
 export function useMyListings(userId: string | undefined) {

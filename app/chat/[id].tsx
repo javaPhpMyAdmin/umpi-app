@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Keyboa
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Send, MoreVertical, Ban, Flag } from 'lucide-react-native';
 import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
 import type { Palette } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,9 +12,15 @@ import { useMessages, useSendMessage } from '@/hooks/useMessages';
 import { useListing } from '@/hooks/useListing';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types';
-import { showError } from '@/lib/toast';
+import { showError, showSuccess } from '@/lib/toast';
 import { UserAvatar } from '@/components/UserAvatar';
 import { MessageTick } from '@/components/MessageTick';
+import ActionSheet from '@/components/ActionSheet';
+import BottomSheetDialog from '@/components/BottomSheetDialog';
+import { useBlockedUserIds } from '@/hooks/useBlockedUserIds';
+import { useBlockUser } from '@/hooks/useBlockUser';
+import { useUnblockUser } from '@/hooks/useUnblockUser';
+import { useReport, USER_REPORT_REASONS } from '@/hooks/useReport';
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -31,6 +37,15 @@ export default function ChatScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const markedReadRef = useRef(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showReportReasons, setShowReportReasons] = useState(false);
+
+  const { data: blockedIds = [], isLoading: blockedLoading, isError: blockedError, refetch: refetchBlocked } = useBlockedUserIds();
+  const blockedSet = useMemo(() => new Set(blockedIds), [blockedIds]);
+  const blockMutation = useBlockUser();
+  const unblockMutation = useUnblockUser();
+  const reportMutation = useReport();
 
   // Android: manejar el teclado manualmente (KeyboardAvoidingView es buggy al cerrar)
   useEffect(() => {
@@ -71,6 +86,30 @@ export default function ChatScreen() {
   const activeListingId = isNew ? (listingId as string) : convData?.listing_id;
   const { data: listing, isLoading: listingLoading } = useListing(activeListingId);
 
+  // Id del otro usuario: param `otherUserId` para chats nuevos, user1/user2
+  // de la conversación para los existentes.
+  const otherUserIdResolved = useMemo(() => {
+    if (isNew) return (otherUserId as string) || undefined;
+    if (!convData || !user) return undefined;
+    return convData.user1_id === user.id ? convData.user2_id : convData.user1_id;
+  }, [isNew, otherUserId, convData, user]);
+
+  const isOtherBlocked = !!otherUserIdResolved && blockedSet.has(otherUserIdResolved);
+
+  // W3a/W3b: fail-closed input gate. While the blocked list is still loading,
+  // blockedSet is the empty default, so isOtherBlocked can't be trusted — a
+  // message could reach a just-blocked user in that window. If the blocked
+  // query errored, the blocked state is unknown, so sending stays disabled
+  // until a retry succeeds (retry banner below).
+  const inputDisabled = isOtherBlocked || blockedLoading || blockedError;
+  const inputPlaceholder = blockedLoading
+    ? 'Cargando...'
+    : blockedError
+      ? 'No se pudo verificar el bloqueo'
+      : isOtherBlocked
+        ? 'Bloqueaste a este usuario'
+        : 'Escribe un mensaje...';
+
   // Compute other user's last_read_at for tick rendering
   const otherUserLastReadAt = useMemo(() => {
     if (!convData || !user) return null;
@@ -107,8 +146,14 @@ export default function ChatScreen() {
     });
   }, [conversationId, user, queryClient]);
 
-  // Realtime subscription — solo para conversaciones existentes
+  // Realtime subscription — existing conversations only. Gated until the
+  // blocked list has resolved AND has no error: while blockedIds is still
+  // loading (or errored, leaving the empty default), the blocked-sender
+  // check below can't be trusted, and a blocked user's message could slip
+  // into the cache in that window (the render-time filter in useMessages
+  // hides it once the list resolves).
   useEffect(() => {
+    if (blockedLoading || blockedError) return;
     if (!conversationId) return;
     // Nombre único por montada para evitar race conditions al salir/volver del mismo chat
     const channelName = `messages-${conversationId}-${Date.now()}`;
@@ -121,6 +166,9 @@ export default function ChatScreen() {
         filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
         const newMsg = payload.new as Message;
+        // Ignore messages from a blocked user (defensive: useMessages also
+        // filters, but realtime appends directly into the cache).
+        if (newMsg.sender_id !== user?.id && blockedSet.has(newMsg.sender_id)) return;
         // Append to the first page (newest messages) of the infinite query
         queryClient.setQueryData(['messages', conversationId], (old: any) => {
           if (!old || !old.pages || old.pages.length === 0) return old;
@@ -146,10 +194,25 @@ export default function ChatScreen() {
       .subscribe();
 
     return () => { supabase.removeChannel(sub); };
-  }, [conversationId, queryClient]);
+  }, [conversationId, queryClient, user?.id, blockedSet, blockedLoading, blockedError]);
+
+  // W3c: close the missed-message window — messages inserted between the
+  // initial fetch and the realtime subscription start are dropped until the
+  // next refetch (bounded, first-session only). Refetch once when the
+  // realtime gate above opens (blocked list resolved without error), which
+  // is exactly when the subscription starts listening. Guarded per
+  // conversation so it fires at most once per mount. Known minor cost: one
+  // extra 51-row fetch per chat entry, even with a warm cache.
+  const missedWindowRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (blockedLoading || blockedError || !conversationId) return;
+    if (missedWindowRef.current === conversationId) return;
+    missedWindowRef.current = conversationId;
+    msgsQuery.refetch();
+  }, [blockedLoading, blockedError, conversationId, msgsQuery.refetch]);
 
   const sendMessage = async () => {
-    if (!input.trim() || !user || creating) return;
+    if (!input.trim() || !user || creating || inputDisabled) return;
     const content = input.trim();
     setInput('');
 
@@ -202,6 +265,66 @@ export default function ChatScreen() {
     }
   };
 
+  // ── Report / block ──────────────────────────────────────────────────────
+
+  const handleReportUser = () => {
+    setShowMoreMenu(false);
+    setShowReportReasons(true);
+  };
+
+  const handleSubmitReport = (reason: string) => {
+    setShowReportReasons(false);
+    if (!otherUserIdResolved) return;
+    reportMutation.mutate(
+      { targetType: 'user', targetId: otherUserIdResolved, reason },
+      {
+        onSuccess: () => {
+          showSuccess('Reporte enviado', 'Gracias por avisarnos. Lo revisaremos a la brevedad.');
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : 'No se pudo enviar el reporte';
+          showError('Error', msg);
+        },
+      },
+    );
+  };
+
+  const handleBlockUser = () => {
+    setShowMoreMenu(false);
+    setShowBlockConfirm(true);
+  };
+
+  const handleConfirmBlock = () => {
+    // Double-tap guard: the dialog closes before the insert resolves, so
+    // check isPending to avoid a second insert hitting the unique constraint.
+    if (blockMutation.isPending) return;
+    setShowBlockConfirm(false);
+    if (!otherUserIdResolved) return;
+    blockMutation.mutate(otherUserIdResolved, {
+      onSuccess: () => {
+        showSuccess('Usuario bloqueado', 'Ya no recibirás sus mensajes');
+      },
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : 'No se pudo bloquear al usuario';
+        showError('Error', msg);
+      },
+    });
+  };
+
+  const handleUnblockUser = () => {
+    setShowMoreMenu(false);
+    if (!otherUserIdResolved) return;
+    unblockMutation.mutate(otherUserIdResolved, {
+      onSuccess: () => {
+        showSuccess('Usuario desbloqueado');
+      },
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : 'No se pudo desbloquear al usuario';
+        showError('Error', msg);
+      },
+    });
+  };
+
   const messagesContent = (
     <>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.messages} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
@@ -225,9 +348,19 @@ export default function ChatScreen() {
             <SkeletonBubble align="left" styles={styles} />
           </View>
         ) : !messages || messages.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Inicia la conversacion</Text>
-          </View>
+          // While auto-advance is fetching through fully-blocked pages
+          // (useMessages), an empty list here is transient — show a truthful
+          // loading state instead of the misleading "Inicia la conversacion"
+          // (which is only accurate once the raw dataset is exhausted).
+          msgsQuery.isFetchingNextPage ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>Cargando...</Text>
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>Inicia la conversacion</Text>
+            </View>
+          )
         ) : (
           <>
             {msgsQuery.isFetchingNextPage && (
@@ -262,8 +395,20 @@ export default function ChatScreen() {
         )}
       </ScrollView>
       <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
-        <TextInput style={styles.input} placeholder="Escribe un mensaje..." placeholderTextColor={c.textMuted} value={input} onChangeText={setInput} multiline />
-        <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+        <TextInput
+          style={[styles.input, inputDisabled && styles.inputDisabled]}
+          placeholder={inputPlaceholder}
+          placeholderTextColor={c.textMuted}
+          value={input}
+          onChangeText={setInput}
+          multiline
+          editable={!inputDisabled}
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, inputDisabled && styles.sendBtnDisabled]}
+          onPress={sendMessage}
+          disabled={inputDisabled}
+        >
           <Send size={22} color={c.white} />
         </TouchableOpacity>
       </View>
@@ -295,8 +440,35 @@ export default function ChatScreen() {
             </>
           )}
         </View>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity
+          style={styles.headerMoreBtn}
+          onPress={() => setShowMoreMenu(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <MoreVertical size={24} color={c.white} />
+        </TouchableOpacity>
       </View>
+
+      {isOtherBlocked && (
+        <View style={styles.blockedBanner}>
+          <Ban size={14} color={c.error} />
+          <Text style={styles.blockedBannerText}>
+            Bloqueaste a este usuario. Ya no recibirás sus mensajes.
+          </Text>
+        </View>
+      )}
+
+      {blockedError && (
+        // W3b: the blocked query failed, so the blocked state is unknown —
+        // input/send stay disabled (fail-closed). Tap to retry the query;
+        // once it succeeds the input re-enables and realtime subscribes.
+        <TouchableOpacity style={styles.blockedBanner} onPress={() => { refetchBlocked(); }} activeOpacity={0.7}>
+          <Ban size={14} color={c.error} />
+          <Text style={styles.blockedBannerText}>
+            No se pudo verificar el estado de bloqueo. Toca para reintentar.
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {listingLoading ? (
         <View style={styles.listingHeader}>
@@ -334,6 +506,38 @@ export default function ChatScreen() {
           <View style={{ height: keyboardHeight }} />
         </View>
       )}
+
+      <ActionSheet
+        visible={showMoreMenu}
+        onClose={() => setShowMoreMenu(false)}
+        options={[
+          { label: 'Reportar usuario', icon: <Flag size={20} color={c.text} />, action: handleReportUser },
+          isOtherBlocked
+            ? { label: 'Desbloquear usuario', icon: <Ban size={20} color={c.text} />, action: handleUnblockUser }
+            : { label: 'Bloquear usuario', icon: <Ban size={20} color={c.error} />, destructive: true, action: handleBlockUser },
+        ]}
+      />
+
+      <ActionSheet
+        visible={showReportReasons}
+        onClose={() => setShowReportReasons(false)}
+        options={USER_REPORT_REASONS.map((reason) => ({
+          label: reason,
+          action: () => handleSubmitReport(reason),
+        }))}
+      />
+
+      <BottomSheetDialog
+        visible={showBlockConfirm}
+        onClose={() => setShowBlockConfirm(false)}
+        icon={<Ban size={28} color={c.error} />}
+        title="Bloquear usuario"
+        message={`No recibirás más mensajes de ${headerName}. Puedes desbloquearlo cuando quieras.`}
+        primaryLabel="Bloquear"
+        primaryAction={handleConfirmBlock}
+        primaryDisabled={blockMutation.isPending}
+        secondaryLabel="Cancelar"
+      />
     </View>
   );
 }
@@ -391,6 +595,9 @@ const createStyles = (c: Palette) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: c.primary, paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12 },
   headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: c.white, flexShrink: 1 },
+  headerMoreBtn: { padding: 4 },
+  blockedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.error + '15', paddingHorizontal: 16, paddingVertical: 8 },
+  blockedBannerText: { fontSize: 12, fontWeight: '600', color: c.error, flexShrink: 1 },
   skeletonHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   skeletonAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.3)' },
   skeletonHeaderTitle: { width: 120, height: 16, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.3)' },
@@ -422,5 +629,7 @@ const createStyles = (c: Palette) => StyleSheet.create({
   emptyText: { fontSize: 14, color: c.textMuted },
   inputBar: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: 12, backgroundColor: c.surface, borderTopWidth: 1, borderTopColor: c.border },
   input: { flex: 1, backgroundColor: c.borderLight, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: c.text, maxHeight: 120, lineHeight: 20 },
+  inputDisabled: { backgroundColor: c.border, opacity: 0.6 },
   sendBtn: { backgroundColor: c.primary, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  sendBtnDisabled: { opacity: 0.6 },
 });

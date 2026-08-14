@@ -18,7 +18,7 @@
  * Bump here → also add a row to legal_consent_versions in a migration →
  * users re-gate. Must match the web app's LEGAL_VERSION.
  */
-export const LEGAL_VERSION = '2026-08-01';
+export const LEGAL_VERSION = '2026-08-14';
 
 /**
  * Single source of truth for the legal documents. The keys are the document
@@ -205,7 +205,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
         'Correo electrónico.',
         'Número de teléfono.',
         'Ciudad.',
-        'Ubicación aproximada (cuando el usuario la autorice).',
+        'Ciudad seleccionada manualmente por el usuario (la app no accede a la ubicación del dispositivo).',
         'Fotografías de publicaciones.',
         'Descripción de los avisos.',
         'Dirección IP.',
@@ -261,6 +261,26 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       'De conformidad con la Ley 25.326, el usuario podrá solicitar:',
       ['Acceso.', 'Rectificación.', 'Actualización.', 'Supresión de sus datos personales.'],
       'Las solicitudes podrán realizarse mediante el correo electrónico oficial de soporte de UMPI.',
+    ],
+  },
+  {
+    title: 'Eliminación de Cuenta y Datos Personales',
+    blocks: [
+      'En UMPI, los usuarios tienen derecho a solicitar la eliminación total de su cuenta y de todos sus datos asociados en cualquier momento.',
+      'Cómo solicitar la eliminación de tu cuenta:',
+      [
+        'Desde la Aplicación: Ve a Perfil > Ajustes > Eliminar cuenta.',
+        'Por Correo Electrónico: Envía una solicitud de eliminación a nuestro equipo de soporte a soporte@umpi.com.ar desde la dirección de correo registrada en tu cuenta de UMPI.',
+      ],
+      'Datos que se eliminan:',
+      'Al procesar la solicitud, eliminaremos de forma permanente:',
+      [
+        'Tu perfil de usuario (nombre, correo electrónico y datos de contacto).',
+        'Todas tus publicaciones y avisos clasificados subidos.',
+        'Tu historial de chats e imágenes asociadas.',
+      ],
+      'Retención de datos:',
+      'Los datos se eliminan de manera inmediata al confirmar la solicitud. Algunos registros técnicos de seguridad se conservarán por un período máximo de 30 días únicamente para fines de auditoría y prevención de fraudes, tras lo cual serán eliminados por completo.',
     ],
   },
   {

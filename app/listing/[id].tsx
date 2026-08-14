@@ -4,7 +4,7 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, useWindowD
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X, ShieldAlert, Award } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Star, MessageCircle, Calendar, LogIn, Edit3, Trash2, MoreHorizontal, X, ShieldAlert, Award, MoreVertical, Flag, Ban } from 'lucide-react-native';
 import { GestureHandlerRootView, ScrollView as GHSscrollView } from 'react-native-gesture-handler';
 import { useTheme, useThemeColors } from '@/contexts/ThemeContext';
 import type { Palette } from '@/constants/colors';
@@ -20,6 +20,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useListing } from '@/hooks/useListing';
 import { useProfile } from '@/hooks/useProfile';
 import { useDeleteListing } from '@/hooks/useListings';
+import { useBlockedUserIds } from '@/hooks/useBlockedUserIds';
+import { useBlockUser } from '@/hooks/useBlockUser';
+import { useUnblockUser } from '@/hooks/useUnblockUser';
+import { useReport, LISTING_REPORT_REASONS } from '@/hooks/useReport';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import ZoomableImage from '@/components/ZoomableImage';
 
@@ -46,13 +50,23 @@ export default function ListingDetailScreen() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showReportReasons, setShowReportReasons] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
   const [contacting, setContacting] = useState(false);
 
   const queryClient = useQueryClient();
 
+  const { data: blockedIds = [] } = useBlockedUserIds();
+  const blockMutation = useBlockUser();
+  const unblockMutation = useUnblockUser();
+  const reportMutation = useReport();
+
   const isOwner = !!user && !!listing && listing.user_id === user.id;
   const isAdmin = profile?.is_admin === true;
+  const sellerId = listing?.user_id || null;
+  const isSellerBlocked = !!sellerId && blockedIds.includes(sellerId);
   const deleteMutation = useDeleteListing();
 
   const checkConversationAndReview = useCallback(async () => {
@@ -165,6 +179,10 @@ export default function ListingDetailScreen() {
   };
 
   const handleDelete = () => {
+    // Re-entry guard: the custom Modal closes before the mutation resolves,
+    // so isPending is the only reliable check — without it a re-opened
+    // dialog could double-fire the status:'deleted' update + storage cleanup.
+    if (deleteMutation.isPending) return;
     if (!listing) return;
     setShowDeleteConfirm(false);
     deleteMutation.mutate(
@@ -180,6 +198,66 @@ export default function ListingDetailScreen() {
         },
       },
     );
+  };
+
+  // ── Report / block (only for non-owners) ────────────────────────────────
+
+  const handleReportListing = () => {
+    setShowMoreMenu(false);
+    setShowReportReasons(true);
+  };
+
+  const handleSubmitReport = (reason: string) => {
+    setShowReportReasons(false);
+    if (!listing) return;
+    reportMutation.mutate(
+      { targetType: 'listing', targetId: listing.id, reason },
+      {
+        onSuccess: () => {
+          showSuccess('Reporte enviado', 'Gracias por avisarnos. Lo revisaremos a la brevedad.');
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : 'No se pudo enviar el reporte';
+          showError('Error', msg);
+        },
+      },
+    );
+  };
+
+  const handleBlockSeller = () => {
+    setShowMoreMenu(false);
+    setShowBlockConfirm(true);
+  };
+
+  const handleConfirmBlock = () => {
+    // Double-tap guard: the dialog closes before the insert resolves, so
+    // check isPending to avoid a second insert hitting the unique constraint.
+    if (blockMutation.isPending) return;
+    setShowBlockConfirm(false);
+    if (!listing) return;
+    blockMutation.mutate(listing.user_id, {
+      onSuccess: () => {
+        showSuccess('Vendedor bloqueado', 'Ya no verás sus publicaciones');
+      },
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : 'No se pudo bloquear al vendedor';
+        showError('Error', msg);
+      },
+    });
+  };
+
+  const handleUnblockSeller = () => {
+    setShowMoreMenu(false);
+    if (!sellerId) return;
+    unblockMutation.mutate(sellerId, {
+      onSuccess: () => {
+        showSuccess('Vendedor desbloqueado', 'Volverás a ver sus publicaciones');
+      },
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : 'No se pudo desbloquear al vendedor';
+        showError('Error', msg);
+      },
+    });
   };
 
   const handleContact = async () => {
@@ -263,8 +341,17 @@ export default function ListingDetailScreen() {
           <TouchableOpacity style={[styles.backBtn, { top: 8 }]} onPress={() => router.back()}>
             <ArrowLeft size={22} color={c.white} />
           </TouchableOpacity>
+          {user && !isOwner && (
+            <TouchableOpacity
+              style={[styles.moreBtn, { top: 8 }]}
+              onPress={() => setShowMoreMenu(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <MoreVertical size={22} color={c.white} />
+            </TouchableOpacity>
+          )}
           {listing.is_featured && (
-            <View style={[styles.featuredBadgeOverlay, { top: 8 }]}>
+            <View style={[styles.featuredBadgeOverlay, { top: 60 }]}>
               <Star size={16} color={c.white} fill={c.white} />
               <Text style={styles.featuredText}>Destacado</Text>
             </View>
@@ -417,6 +504,38 @@ export default function ListingDetailScreen() {
         ]}
       />
 
+      <ActionSheet
+        visible={showMoreMenu}
+        onClose={() => setShowMoreMenu(false)}
+        options={[
+          { label: 'Reportar publicación', icon: <Flag size={20} color={c.text} />, action: handleReportListing },
+          isSellerBlocked
+            ? { label: 'Desbloquear vendedor', icon: <Ban size={20} color={c.text} />, action: handleUnblockSeller }
+            : { label: 'Bloquear vendedor', icon: <Ban size={20} color={c.error} />, destructive: true, action: handleBlockSeller },
+        ]}
+      />
+
+      <ActionSheet
+        visible={showReportReasons}
+        onClose={() => setShowReportReasons(false)}
+        options={LISTING_REPORT_REASONS.map((reason) => ({
+          label: reason,
+          action: () => handleSubmitReport(reason),
+        }))}
+      />
+
+      <BottomSheetDialog
+        visible={showBlockConfirm}
+        onClose={() => setShowBlockConfirm(false)}
+        icon={<Ban size={28} color={c.error} />}
+        title="Bloquear vendedor"
+        message={`No volverás a ver las publicaciones de ${seller?.full_name || 'este usuario'} ni podrá escribirte. Puedes desbloquearlo cuando quieras.`}
+        primaryLabel="Bloquear"
+        primaryAction={handleConfirmBlock}
+        primaryDisabled={blockMutation.isPending}
+        secondaryLabel="Cancelar"
+      />
+
       <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
         <View style={styles.deleteOverlay}>
           <View style={styles.deleteCard}>
@@ -523,6 +642,7 @@ const createStyles = (c: Palette, isDark: boolean) => StyleSheet.create({
   image: { width: '100%', height: '100%' },
   imageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' },
   backBtn: { position: 'absolute', left: 16, backgroundColor: 'rgba(0,0,0,0.4)', padding: 10, borderRadius: 12 },
+  moreBtn: { position: 'absolute', right: 16, backgroundColor: 'rgba(0,0,0,0.4)', padding: 10, borderRadius: 12 },
   dots: { position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
   dotActive: { width: 22, backgroundColor: c.white },
