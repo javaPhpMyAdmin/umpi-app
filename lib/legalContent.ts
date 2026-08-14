@@ -270,7 +270,7 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
       'Cómo solicitar la eliminación de tu cuenta:',
       [
         'Desde la Aplicación: Ve a Perfil > Ajustes > Eliminar cuenta.',
-        'Por Correo Electrónico: Envía una solicitud de eliminación a nuestro equipo de soporte a soporte@umpi.com.ar desde la dirección de correo registrada en tu cuenta de UMPI.',
+        'Por Correo Electrónico: Envía una solicitud de eliminación a nuestro equipo de soporte a info@umpi.com.ar desde la dirección de correo registrada en tu cuenta de UMPI.',
       ],
       'Datos que se eliminan:',
       'Al procesar la solicitud, eliminaremos de forma permanente:',
